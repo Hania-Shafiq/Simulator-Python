@@ -1,0 +1,13 @@
+This code is a complete queueing system simulator and
+analyzer with a GUI. It generates random arrivals and
+service times using multiple distributions, computes 
+analytical queueing metrics such as Lq (average queue length),
+Wq (average waiting time), L (average number of customers in
+the system), W (average time in the system), and traffic 
+intensity ρ for models like M/M/1, M/M/c, M/G/1, and G/G/1.
+It also performs a full discrete-event simulation to track
+customer arrival, waiting, service, and completion times. 
+The output is shown in a Tkinter interface with data 
+tables, performance charts, a Gantt chart for server
+utilization, and sensitivity graphs to compare simulation
+results with analytical formulas.
