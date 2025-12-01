@@ -1,4 +1,4 @@
-# hello 
+# Sapphire Shopping Outlet - Queue Simulator
 import math
 import random
 import pandas as pd
@@ -123,7 +123,14 @@ def calculate_analytical(queue_type, lam, mu, c, dist_name="Exponential", dist_p
     }
     return results, rho
 
-# ---------------- 3. SIMULATION LOGIC (BUG FIXED HERE) ---------------- #
+# ---------------- 3. TIME FORMATTING HELPER ---------------- #
+def format_time(minutes):
+    """Convert minutes to HH:MM format"""
+    hours = int(minutes // 60)
+    mins = int(minutes % 60)
+    return f"{hours:02d}:{mins:02d}"
+
+# ---------------- 4. SIMULATION LOGIC (SAPPHIRE - SEQUENTIAL IDs!) ---------------- #
 def generate_arrivals_strict(lam, max_cp=0.99999):
     arrivals = []
     cp_list = []
@@ -137,7 +144,8 @@ def generate_arrivals_strict(lam, max_cp=0.99999):
         calculated_cp = 1 - math.exp(-lam * t)
         if calculated_cp >= max_cp:
             break
-        arrivals.append(t)
+        scaled_t = round(t * 100)
+        arrivals.append(scaled_t)
         cp_list.append(round(calculated_cp, 5))
         cp_lookup.append(round(prev_cp, 5))
         prev_cp = calculated_cp
@@ -145,49 +153,70 @@ def generate_arrivals_strict(lam, max_cp=0.99999):
         if len(arrivals) > 5000: break
     return arrivals, cp_list, cp_lookup
 
-# BUG FIXED: Removed duplicate "mu"
+# SAPPHIRE: Sequential IDs (1,2,3...) for shopping customers only
 def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist, lam, mu, servers, service_params=""):
     arrivals, cp_list, cp_lookup = generate_arrivals_strict(lam)
     num_servers = servers
     server_end_times = [0.0] * num_servers
     server_busy_log = [[] for _ in range(num_servers)]
     rows = []
+    max_end_time = 0
+    shopping_customer_id = 0  # Sequential ID counter for shopping customers
 
     for i in range(len(arrivals)):
         arrival_t = arrivals[i]
-        cust_id = i + 1
 
-        # Interarrival (only used for G arrivals later, but kept for structure)
         if arrival_type == "M":
             inter = get_interarrival_time("M", lam)
         else:
-            inter = get_interarrival_time("G", lam)  # currently uses uniform
+            inter = get_interarrival_time("G", lam)
 
-        srv_time = get_service_time(service_dist, mu, service_params)
+        # 30% just visit, 70% shop
+        will_shop = random.random() > 0.3
+        
+        if not will_shop:
+            continue
+        
+        # Assign sequential ID to shopping customer
+        shopping_customer_id += 1
+        cust_id = shopping_customer_id
+        
+        browsing_time = random.randint(15, 30)
+        queue_join_time = arrival_t + browsing_time
+        srv_time = random.choice([8, 10, 12, 13])
 
         next_free_server_idx = server_end_times.index(min(server_end_times))
-        start_t = max(arrival_t, server_end_times[next_free_server_idx])
+        start_t = max(queue_join_time, server_end_times[next_free_server_idx])
         end_t = start_t + srv_time
-        wait_t = start_t - arrival_t
+        wait_t = start_t - queue_join_time
         turnaround_t = end_t - arrival_t
 
         server_end_times[next_free_server_idx] = end_t
         server_busy_log[next_free_server_idx].append((start_t, srv_time, cust_id))
+        max_end_time = max(max_end_time, end_t)
 
         rows.append([
-            cust_id, round(arrival_t, 2), round(srv_time, 2), f"S{next_free_server_idx+1}",
-            round(start_t, 2), round(end_t, 2), round(wait_t, 2), round(turnaround_t, 2),
-            round(turnaround_t, 2), cp_list[i], cp_lookup[i]
+            cust_id, 
+            format_time(arrival_t),
+            round(srv_time, 2),
+            f"S{next_free_server_idx+1}",
+            format_time(start_t),
+            format_time(end_t),
+            round(wait_t, 2),
+            round(turnaround_t, 2),
+            round(turnaround_t, 2),
+            cp_list[i], 
+            cp_lookup[i]
         ])
 
     df = pd.DataFrame(rows, columns=["ID","Arrival","Service","Server","Start","End","Wait","Turnaround","Response","CP","CP_Lookup"])
-    return df, server_busy_log
+    return df, server_busy_log, max_end_time
 
-# ---------------- 4. GUI (PERFECT AS YOU WANTED) ---------------- #
+# ---------------- 5. GUI ---------------- #
 class QueueSimulatorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Advanced Queue Simulator & Analyzer")
+        self.root.title("Sapphire Shopping Outlet - Queue Simulator")
         try:
             self.root.state('zoomed')
         except:
@@ -199,7 +228,6 @@ class QueueSimulatorApp:
         input_frame = ttk.LabelFrame(root, text="Configuration", padding=10)
         input_frame.pack(fill="x", padx=10, pady=5)
 
-        # Arrival
         ttk.Label(input_frame, text="Arrival:").grid(row=0, column=0, padx=10, pady=5, sticky="e")
         self.arrival_type = tk.StringVar(value="M")
         ttk.Radiobutton(input_frame, text="M (Poisson)", variable=self.arrival_type, value="M").grid(row=0, column=1, sticky="w")
@@ -212,7 +240,6 @@ class QueueSimulatorApp:
         self.lbl_arr_params = ttk.Label(input_frame, text="Arrival Params:")
         self.entry_arr_params = ttk.Entry(input_frame, width=15)
 
-        # Service
         ttk.Label(input_frame, text="Service:").grid(row=0, column=3, padx=20, pady=5, sticky="e")
         self.service_type = tk.StringVar(value="M")
         ttk.Radiobutton(input_frame, text="M (Exponential)", variable=self.service_type, value="M").grid(row=0, column=4, sticky="w")
@@ -225,9 +252,8 @@ class QueueSimulatorApp:
         self.lbl_svc_params = ttk.Label(input_frame, text="Service Params (a,b or σ):")
         self.entry_svc_params = ttk.Entry(input_frame, width=15)
 
-        # Inputs
         ttk.Label(input_frame, text="λ (Arr Rate):").grid(row=0, column=6, padx=5)
-        self.entry_lambda = ttk.Entry(input_frame, width=8); self.entry_lambda.insert(0, "4"); self.entry_lambda.grid(row=0, column=7, padx=5)
+        self.entry_lambda = ttk.Entry(input_frame, width=8); self.entry_lambda.insert(0, "8"); self.entry_lambda.grid(row=0, column=7, padx=5)
         ttk.Label(input_frame, text="μ (Svc Rate):").grid(row=0, column=8, padx=5)
         self.entry_mu = ttk.Entry(input_frame, width=8); self.entry_mu.insert(0, "5"); self.entry_mu.grid(row=0, column=9, padx=5)
         ttk.Label(input_frame, text="Servers (c):").grid(row=0, column=10, padx=5)
@@ -242,7 +268,6 @@ class QueueSimulatorApp:
         self.service_type.trace("w", self.update_dist_options)
         self.update_dist_options()
 
-        # Tabs (unchanged)
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
@@ -279,8 +304,6 @@ class QueueSimulatorApp:
             self.service_dist.set("Uniform")
             self.lbl_svc_params.grid(row=2, column=3, columnspan=2, sticky="e")
             self.entry_svc_params.grid(row=2, column=5, pady=2)
-
-    # [All your original methods: setup_table_tab, run_sim, draw_time_charts, draw_gantt, run_analytics — 100% unchanged]
 
     def setup_table_tab(self):
         cols = ("ID","Arr","Svc","Svr","Start","End","Wait","Turn","Resp","CP","PrevCP")
@@ -321,7 +344,7 @@ class QueueSimulatorApp:
             mu = float(self.entry_mu.get())
             servers = int(self.entry_servers.get())
 
-            df, server_log = simulate_queue_engine(
+            df, server_log, max_end_time = simulate_queue_engine(
                 self.arrival_type.get(),
                 self.arrival_dist.get(),
                 self.service_type.get(),
@@ -334,7 +357,7 @@ class QueueSimulatorApp:
             for _, r in df.iterrows(): self.tree.insert("", "end", values=r.tolist())
 
             self.draw_time_charts(df)
-            self.draw_gantt(server_log, df["End"].max())
+            self.draw_gantt(server_log, max_end_time)
             self.notebook.select(self.tab_data)
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -343,8 +366,8 @@ class QueueSimulatorApp:
         for w in self.chart_frame.winfo_children(): w.destroy()
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
         d = df.head(50)
-        ax1.bar(d["ID"], d["Wait"], color='#ff9999'); ax1.set_title("Wait Time")
-        ax2.bar(d["ID"], d["Turnaround"], color='#66b3ff'); ax2.set_title("Turnaround Time")
+        ax1.bar(d["ID"], d["Wait"], color='#ff9999'); ax1.set_title("Wait Time at Billing Counter")
+        ax2.bar(d["ID"], d["Turnaround"], color='#66b3ff'); ax2.set_title("Total Time in Outlet")
         ax3.bar(d["ID"], d["Response"], color='#99ff99'); ax3.set_title("Response Time")
         plt.tight_layout()
         canvas = FigureCanvasTkAgg(fig, self.chart_frame)
@@ -352,6 +375,7 @@ class QueueSimulatorApp:
 
     def draw_gantt(self, logs, max_t):
         for w in self.gantt_frame_inner.winfo_children(): w.destroy()
+        
         fig = plt.Figure(figsize=(max(12, max_t/4), 2 + len(logs)*1.5), dpi=100)
         ax = fig.add_subplot(111)
         cmap = plt.cm.get_cmap('tab20')
@@ -364,7 +388,7 @@ class QueueSimulatorApp:
             ax.text(max_t*1.01, y, f"Util: {total/max_t*100:.1f}%", va='center', color='red', weight='bold')
         ax.set_yticks(range(1, len(logs)+1))
         ax.set_yticklabels([f"Server {i}" for i in range(1, len(logs)+1)])
-        ax.set_title("Gantt Chart - Server Utilization")
+        ax.set_title("Gantt Chart - Billing Counter Utilization")
         canvas = FigureCanvasTkAgg(fig, self.gantt_frame_inner)
         canvas.draw(); canvas.get_tk_widget().pack(fill="both", expand=True)
 
