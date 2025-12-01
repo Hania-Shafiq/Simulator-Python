@@ -9,9 +9,7 @@ import numpy as np
 
 # ---------------- 1. RANDOM NUMBER GENERATORS ---------------- #
 def get_interarrival_time(dist_type, lam):
-    if dist_type == "Poisson":
-        return -math.log(1 - random.random()) / lam
-    elif dist_type == "Exponential":
+    if dist_type == "Poisson" or dist_type == "Exponential":
         return -math.log(1 - random.random()) / lam
     else:  # General
         mean_t = 1/lam
@@ -20,7 +18,7 @@ def get_interarrival_time(dist_type, lam):
 def get_service_time(dist_name, mu, params):
     mean_service_time = 1.0 / mu if mu > 0 else 1.0
     try:
-        if dist_name == "Exponential":
+        if dist_name == "Exponential" or dist_name == "Poisson":
             return -math.log(1 - random.random()) / mu
         elif dist_name == "Uniform":
             if "," in params:
@@ -44,7 +42,7 @@ def get_service_time(dist_name, mu, params):
 
 # ---------------- 2. ANALYTICAL FORMULAS ---------------- #
 def get_scv(dist_name, mean_val, params):
-    if dist_name == "Exponential" or dist_name == "M":
+    if dist_name in ["Exponential", "Poisson", "M"]:
         return 1.0
     variance = 0.0
     if dist_name == "Uniform":
@@ -81,7 +79,7 @@ def calculate_analytical(queue_type, lam, mu, c, dist_name="Exponential", dist_p
         Wq = Lq / lam
         W = Wq + (1 / mu)
         L = Lq + r
-    elif queue_type == "GG1" or queue_type == "MG1":
+    elif queue_type in ["GG1", "MG1"]:
         Ca2 = 1.0
         if queue_type.startswith("G"):
             Ca2 = get_scv("Uniform", 1/lam, "")
@@ -181,10 +179,8 @@ class QueueSimulatorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Advanced Queue Simulator & Analyzer")
-        try:
-            self.root.state('zoomed')
-        except:
-            self.root.geometry("1400x900")
+        try: self.root.state('zoomed')
+        except: self.root.geometry("1400x900")
 
         style = ttk.Style()
         style.theme_use('clam')
@@ -208,7 +204,7 @@ class QueueSimulatorApp:
         # Service
         ttk.Label(input_frame, text="Service:").grid(row=0, column=3, padx=20, pady=5, sticky="e")
         self.service_type = tk.StringVar(value="M")
-        ttk.Radiobutton(input_frame, text="M (Exponential)", variable=self.service_type, value="M").grid(row=0, column=4, sticky="w")
+        ttk.Radiobutton(input_frame, text="M (Exp/Poisson)", variable=self.service_type, value="M").grid(row=0, column=4, sticky="w")
         ttk.Radiobutton(input_frame, text="G (General)", variable=self.service_type, value="G").grid(row=0, column=5, sticky="w")
 
         self.service_dist = tk.StringVar(value="Exponential")
@@ -234,7 +230,6 @@ class QueueSimulatorApp:
         self.arrival_type.trace("w", self.update_dist_options)
         self.service_type.trace("w", self.update_dist_options)
         self.update_dist_options()
-
         # Tabs
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=5)
@@ -263,7 +258,7 @@ class QueueSimulatorApp:
             self.entry_arr_params.grid(row=2, column=2, pady=2)
 
         if self.service_type.get() == "M":
-            self.cb_service_dist.config(values=["Exponential"])
+            self.cb_service_dist.config(values=["Exponential", "Poisson"])
             self.service_dist.set("Exponential")
             self.lbl_svc_params.grid_forget()
             self.entry_svc_params.grid_forget()
