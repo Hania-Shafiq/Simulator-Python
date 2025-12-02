@@ -344,6 +344,17 @@ class QueueSimulatorApp:
             mu = float(self.entry_mu.get())
             servers = int(self.entry_servers.get())
 
+            # --- VALIDATION ---
+            if lam <= 0:
+                messagebox.showerror("Input Error", "Arrival rate λ must be a positive number.")
+                return
+            if mu <= 0:
+                messagebox.showerror("Input Error", "Service rate μ must be a positive number.")
+                return
+            if servers <= 0:
+                messagebox.showerror("Input Error", "Number of servers must be at least 1.")
+                return
+
             df, server_log, max_end_time = simulate_queue_engine(
                 self.arrival_type.get(),
                 self.arrival_dist.get(),
@@ -353,8 +364,11 @@ class QueueSimulatorApp:
                 self.entry_svc_params.get() if self.service_type.get() == "G" else ""
             )
 
-            for i in self.tree.get_children(): self.tree.delete(i)
-            for _, r in df.iterrows(): self.tree.insert("", "end", values=r.tolist())
+            # Clear old data and insert new
+            for i in self.tree.get_children(): 
+                self.tree.delete(i)
+            for _, r in df.iterrows(): 
+                self.tree.insert("", "end", values=r.tolist())
 
             self.draw_time_charts(df)
             self.draw_gantt(server_log, max_end_time)
@@ -378,7 +392,10 @@ class QueueSimulatorApp:
         
         fig = plt.Figure(figsize=(max(12, max_t/4), 2 + len(logs)*1.5), dpi=100)
         ax = fig.add_subplot(111)
-        cmap = plt.cm.get_cmap('tab20')
+        try:
+            cmap = plt.colormaps['tab20']  # For Matplotlib 3.7+
+        except AttributeError:
+            cmap = plt.cm.get_cmap('tab20')  # Fallback for older versions
         for i, log in enumerate(logs):
             y = i + 1
             total = sum(d for _,d,_ in log)
@@ -397,6 +414,18 @@ class QueueSimulatorApp:
             lam = float(self.entry_lambda.get())
             mu = float(self.entry_mu.get())
             c = int(self.entry_servers.get())
+
+            # --- VALIDATION ---
+            if lam <= 0:
+                messagebox.showerror("Input Error", "Arrival rate λ must be a positive number.")
+                return
+            if mu <= 0:
+                messagebox.showerror("Input Error", "Service rate μ must be a positive number.")
+                return
+            if c <= 0:
+                messagebox.showerror("Input Error", "Number of servers must be at least 1.")
+                return
+
             q_type = self.arrival_type.get() + self.service_type.get() + ("C" if c>1 else "1")
             dist = self.service_dist.get()
             params = self.entry_svc_params.get() if self.service_type.get() == "G" else ""
@@ -410,6 +439,7 @@ class QueueSimulatorApp:
             self.notebook.select(self.tab_metrics)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
 
 if __name__ == "__main__":
     root = tk.Tk()
