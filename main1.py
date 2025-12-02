@@ -10,16 +10,16 @@ import numpy as np
 
 # ---------------- 1. RANDOM NUMBER GENERATORS ---------------- #
 def get_interarrival_time(dist_type, lam):
-    if dist_type == "M":
+    if dist_type == "Poisson" or dist_type == "Exponential":
         return -math.log(1 - random.random()) / lam
-    else:
+    else:  # General
         mean_t = 1/lam
         return random.uniform(mean_t * 0.5, mean_t * 1.5)
 
 def get_service_time(dist_name, mu, params):
     mean_service_time = 1.0 / mu if mu > 0 else 1.0
     try:
-        if dist_name == "Exponential":
+        if dist_name == "Exponential" or dist_name == "Poisson":
             return -math.log(1 - random.random()) / mu
         elif dist_name == "Uniform":
             if "," in params:
@@ -34,7 +34,7 @@ def get_service_time(dist_name, mu, params):
         elif dist_name == "Gamma":
             alpha = 2.0
             beta = mean_service_time / alpha
-            val = random.gamma(alpha, beta)
+            val = random.gammavariate(alpha, beta)
             return max(0.01, val)
         else:
             return -math.log(1 - random.random()) / mu
@@ -43,7 +43,7 @@ def get_service_time(dist_name, mu, params):
 
 # ---------------- 2. ANALYTICAL FORMULAS ---------------- #
 def get_scv(dist_name, mean_val, params):
-    if dist_name == "Exponential" or dist_name == "M":
+    if dist_name in ["Exponential", "Poisson", "M"]:
         return 1.0
     variance = 0.0
     if dist_name == "Uniform":
@@ -80,7 +80,7 @@ def calculate_analytical(queue_type, lam, mu, c, dist_name="Exponential", dist_p
         Wq = Lq / lam
         W = Wq + (1 / mu)
         L = Lq + r
-    elif queue_type == "GG1" or queue_type == "MG1":
+    elif queue_type in ["GG1", "MG1"]:
         Ca2 = 1.0
         if queue_type.startswith("G"):
             Ca2 = get_scv("Uniform", 1/lam, "")
@@ -112,7 +112,6 @@ def calculate_analytical(queue_type, lam, mu, c, dist_name="Exponential", dist_p
         Wq = Wq_mmc * ((Ca2 + Cs2) / 2)
         Lq = Wq * lam
         W = Wq + (1/mu)
-        L = lam * W
 
     results = {
         "Traffic Intensity (ρ)": round(rho, 4),
@@ -123,6 +122,7 @@ def calculate_analytical(queue_type, lam, mu, c, dist_name="Exponential", dist_p
     }
     return results, rho
 
+
 # ---------------- 3. TIME FORMATTING HELPER ---------------- #
 def format_time(minutes):
     """Convert minutes to HH:MM format"""
@@ -131,6 +131,9 @@ def format_time(minutes):
     return f"{hours:02d}:{mins:02d}"
 
 # ---------------- 4. SIMULATION LOGIC (SAPPHIRE - SEQUENTIAL IDs!) ---------------- #
+
+# ---------------- 3. SIMULATION LOGIC ---------------- #
+
 def generate_arrivals_strict(lam, max_cp=0.99999):
     arrivals = []
     cp_list = []
@@ -153,7 +156,6 @@ def generate_arrivals_strict(lam, max_cp=0.99999):
         if len(arrivals) > 5000: break
     return arrivals, cp_list, cp_lookup
 
-# SAPPHIRE: Sequential IDs (1,2,3...) for shopping customers only
 def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist, lam, mu, servers, service_params=""):
     arrivals, cp_list, cp_lookup = generate_arrivals_strict(lam)
     num_servers = servers
@@ -161,32 +163,16 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
     server_busy_log = [[] for _ in range(num_servers)]
     rows = []
     max_end_time = 0
-    shopping_customer_id = 0  # Sequential ID counter for shopping customers
 
     for i in range(len(arrivals)):
         arrival_t = arrivals[i]
-
-        if arrival_type == "M":
-            inter = get_interarrival_time("M", lam)
-        else:
-            inter = get_interarrival_time("G", lam)
-
-        # 30% just visit, 70% shop
-        will_shop = random.random() > 0.3
+        cust_id = i + 1
+        inter = get_interarrival_time(arrival_dist, lam)
+        srv_time = get_service_time(service_dist, mu, service_params)
+        queue_join_time = arrival_t
         
-        if not will_shop:
-            continue
-        
-        # Assign sequential ID to shopping customer
-        shopping_customer_id += 1
-        cust_id = shopping_customer_id
-        
-        browsing_time = random.randint(15, 30)
-        queue_join_time = arrival_t + browsing_time
-        srv_time = random.choice([8, 10, 12, 13])
-
         next_free_server_idx = server_end_times.index(min(server_end_times))
-        start_t = max(queue_join_time, server_end_times[next_free_server_idx])
+        start_t = max(arrival_t, server_end_times[next_free_server_idx])
         end_t = start_t + srv_time
         wait_t = start_t - queue_join_time
         turnaround_t = end_t - arrival_t
@@ -212,6 +198,7 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
     df = pd.DataFrame(rows, columns=["ID","Arrival","Service","Server","Start","End","Wait","Turnaround","Response","CP","CP_Lookup"])
     return df, server_busy_log, max_end_time
 
+
 # ---------------- 5. GUI ---------------- #
 class QueueSimulatorApp:
     def __init__(self, root):
@@ -222,6 +209,7 @@ class QueueSimulatorApp:
         except:
             self.root.geometry("1400x900")
 
+
         style = ttk.Style()
         style.theme_use('clam')
 
@@ -230,7 +218,7 @@ class QueueSimulatorApp:
 
         ttk.Label(input_frame, text="Arrival:").grid(row=0, column=0, padx=10, pady=5, sticky="e")
         self.arrival_type = tk.StringVar(value="M")
-        ttk.Radiobutton(input_frame, text="M (Poisson)", variable=self.arrival_type, value="M").grid(row=0, column=1, sticky="w")
+        ttk.Radiobutton(input_frame, text="M (Poisson/Exp)", variable=self.arrival_type, value="M").grid(row=0, column=1, sticky="w")
         ttk.Radiobutton(input_frame, text="G (General)", variable=self.arrival_type, value="G").grid(row=0, column=2, sticky="w")
 
         self.arrival_dist = tk.StringVar(value="Poisson")
@@ -242,7 +230,7 @@ class QueueSimulatorApp:
 
         ttk.Label(input_frame, text="Service:").grid(row=0, column=3, padx=20, pady=5, sticky="e")
         self.service_type = tk.StringVar(value="M")
-        ttk.Radiobutton(input_frame, text="M (Exponential)", variable=self.service_type, value="M").grid(row=0, column=4, sticky="w")
+        ttk.Radiobutton(input_frame, text="M (Exp/Poisson)", variable=self.service_type, value="M").grid(row=0, column=4, sticky="w")
         ttk.Radiobutton(input_frame, text="G (General)", variable=self.service_type, value="G").grid(row=0, column=5, sticky="w")
 
         self.service_dist = tk.StringVar(value="Exponential")
@@ -268,6 +256,8 @@ class QueueSimulatorApp:
         self.service_type.trace("w", self.update_dist_options)
         self.update_dist_options()
 
+        # Tabs
+
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
@@ -283,28 +273,30 @@ class QueueSimulatorApp:
         self.canvas_sens.get_tk_widget().pack(fill="both", expand=True)
 
     def update_dist_options(self, *args):
-        if self.arrival_type.get() == "M":
-            self.cb_arrival_dist.config(values=["Poisson"])
-            self.arrival_dist.set("Poisson")
-            self.lbl_arr_params.grid_forget()
-            self.entry_arr_params.grid_forget()
-        else:
-            self.cb_arrival_dist.config(values=["Uniform", "Normal", "Gamma"])
-            self.arrival_dist.set("Uniform")
-            self.lbl_arr_params.grid(row=2, column=0, columnspan=2, sticky="e")
-            self.entry_arr_params.grid(row=2, column=2, pady=2)
+     if self.arrival_type.get() == "M":
+        self.cb_arrival_dist.config(values=["Poisson", "Exponential"])
+        self.arrival_dist.set("Poisson")
+        self.lbl_arr_params.grid_forget()
+        self.entry_arr_params.grid_forget()
+     else:
+        self.cb_arrival_dist.config(values=["Uniform", "Normal", "Gamma"])
+        self.arrival_dist.set("Uniform")
+        self.lbl_arr_params.grid(row=2, column=0, columnspan=2, sticky="e")
+        self.entry_arr_params.grid(row=2, column=2, pady=2)
 
-        if self.service_type.get() == "M":
-            self.cb_service_dist.config(values=["Exponential"])
-            self.service_dist.set("Exponential")
-            self.lbl_svc_params.grid_forget()
-            self.entry_svc_params.grid_forget()
-        else:
-            self.cb_service_dist.config(values=["Uniform", "Normal", "Gamma"])
-            self.service_dist.set("Uniform")
-            self.lbl_svc_params.grid(row=2, column=3, columnspan=2, sticky="e")
-            self.entry_svc_params.grid(row=2, column=5, pady=2)
+     if self.service_type.get() == "M":
+        self.cb_service_dist.config(values=["Exponential", "Poisson"])
+        self.service_dist.set("Exponential")
+        self.lbl_svc_params.grid_forget()
+        self.entry_svc_params.grid_forget()
+     else:
+        self.cb_service_dist.config(values=["Uniform", "Normal", "Gamma"])
+        self.service_dist.set("Uniform")
+        self.lbl_svc_params.grid(row=2, column=3, columnspan=2, sticky="e")
+        self.entry_svc_params.grid(row=2, column=5, pady=2)
 
+
+    # ---------------- GUI Tabs ---------------- #
     def setup_table_tab(self):
         cols = ("ID","Arr","Svc","Svr","Start","End","Wait","Turn","Resp","CP","PrevCP")
         self.tree = ttk.Treeview(self.tab_data, columns=cols, show='headings')
@@ -371,43 +363,124 @@ class QueueSimulatorApp:
                 self.tree.insert("", "end", values=r.tolist())
 
             self.draw_time_charts(df)
+            self.draw_sensitivity_graph()
             self.draw_gantt(server_log, max_end_time)
             self.notebook.select(self.tab_data)
         except Exception as e:
             messagebox.showerror("Error", str(e))
-
     def draw_time_charts(self, df):
-        for w in self.chart_frame.winfo_children(): w.destroy()
+        # Clear previous charts
+        for w in self.chart_frame.winfo_children():
+            w.destroy()
+        
+        # Create subplots
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
         d = df.head(50)
-        ax1.bar(d["ID"], d["Wait"], color='#ff9999'); ax1.set_title("Wait Time at Billing Counter")
-        ax2.bar(d["ID"], d["Turnaround"], color='#66b3ff'); ax2.set_title("Total Time in Outlet")
-        ax3.bar(d["ID"], d["Response"], color='#99ff99'); ax3.set_title("Response Time")
+        
+        # Plot Wait Time
+        ax1.bar(d["ID"], d["Wait"], color='#ff9999')
+        ax1.set_title("Wait Time at Billing Counter")
+        
+        # Plot Turnaround Time
+        ax2.bar(d["ID"], d["Turnaround"], color='#66b3ff')
+        ax2.set_title("Total Time in Outlet")
+        
+        # Plot Response Time
+        ax3.bar(d["ID"], d["Response"], color='#99ff99')
+        ax3.set_title("Response Time")
+        
+        # Adjust layout
         plt.tight_layout()
+        
+        # Draw on Tkinter canvas
         canvas = FigureCanvasTkAgg(fig, self.chart_frame)
-        canvas.draw(); canvas.get_tk_widget().pack(fill="both", expand=True)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+           
 
     def draw_gantt(self, logs, max_t):
-        for w in self.gantt_frame_inner.winfo_children(): w.destroy()
+        # Clear previous Gantt chart
+        for w in self.gantt_frame_inner.winfo_children():
+            w.destroy()
         
-        fig = plt.Figure(figsize=(max(12, max_t/4), 2 + len(logs)*1.5), dpi=100)
+        # Create figure
+        fig = plt.Figure(figsize=(max(12, max_t / 4), 2 + len(logs) * 1.5), dpi=100)
         ax = fig.add_subplot(111)
+        
+        # Get colormap
         try:
             cmap = plt.colormaps['tab20']  # For Matplotlib 3.7+
         except AttributeError:
             cmap = plt.cm.get_cmap('tab20')  # Fallback for older versions
+        
+        # Plot each server's logs
         for i, log in enumerate(logs):
             y = i + 1
-            total = sum(d for _,d,_ in log)
+            total = sum(d for _, d, _ in log)
+            
             for s, d, cid in log:
-                ax.broken_barh([(s, d)], (y-0.4, 0.8), facecolors=cmap(cid%20))
-                ax.text(s + d/2, y, str(cid), ha='center', va='center', color='white', fontsize=8, weight='bold')
-            ax.text(max_t*1.01, y, f"Util: {total/max_t*100:.1f}%", va='center', color='red', weight='bold')
-        ax.set_yticks(range(1, len(logs)+1))
-        ax.set_yticklabels([f"Server {i}" for i in range(1, len(logs)+1)])
+                ax.broken_barh([(s, d)], (y - 0.4, 0.8), facecolors=cmap(cid % 20))
+                ax.text(s + d / 2, y, str(cid), ha='center', va='center', color='white', fontsize=8, weight='bold')
+            
+            # Utilization text on the right
+            ax.text(max_t * 1.01, y, f"Util: {total / max_t * 100:.1f}%", va='center', color='red', weight='bold')
+        
+        # Set y-axis labels
+        ax.set_yticks(range(1, len(logs) + 1))
+        ax.set_yticklabels([f"Server {i}" for i in range(1, len(logs) + 1)])
         ax.set_title("Gantt Chart - Billing Counter Utilization")
+        
+        # Draw on Tkinter canvas
         canvas = FigureCanvasTkAgg(fig, self.gantt_frame_inner)
-        canvas.draw(); canvas.get_tk_widget().pack(fill="both", expand=True)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+    def draw_sensitivity_graph(self):
+        # Clear previous graph
+        for w in self.tab_sens.winfo_children():
+            w.destroy()
+
+        try:
+            mu = float(self.entry_mu.get())
+            servers = int(self.entry_servers.get())
+        except Exception as e:
+            messagebox.showerror("Input Error", f"Invalid input: {e}")
+            return
+
+        # Generate a range of λ values around the current λ
+        try:
+            base_lam = float(self.entry_lambda.get())
+        except:
+            base_lam = 5  # default if invalid
+
+        lam_values = [max(0.1, base_lam + i) for i in range(-5, 6)]  # λ-5 to λ+5
+        avg_waits = []
+
+        for lam in lam_values:
+            # Simulate the queue for each λ
+            df, _, _ = simulate_queue_engine(
+                self.arrival_type.get(),
+                self.arrival_dist.get(),
+                self.service_type.get(),
+                self.service_dist.get(),
+                lam, mu, servers,
+                self.entry_svc_params.get() if self.service_type.get() == "G" else ""
+            )
+            avg_waits.append(df["Wait"].mean())  # average wait time
+
+        # Plotting
+        fig, ax = plt.subplots(figsize=(8,5))
+        ax.plot(lam_values, avg_waits, marker='o', linestyle='-', color='purple')
+        ax.set_xlabel("Arrival Rate λ")
+        ax.set_ylabel("Average Wait Time")
+        ax.set_title("Sensitivity Graph: Wait Time vs Arrival Rate")
+        ax.grid(True)
+
+        canvas = FigureCanvasTkAgg(fig, self.tab_sens)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+
+       
 
     def run_analytics(self):
         try:
@@ -445,3 +518,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = QueueSimulatorApp(root)
     root.mainloop()
+
