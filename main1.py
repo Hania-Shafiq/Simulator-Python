@@ -134,29 +134,48 @@ def format_time(minutes):
 
 # ---------------- 3. SIMULATION LOGIC ---------------- #
 
-def generate_arrivals_strict(lam, max_cp=0.99999):
+def generate_arrivals_strict(lam, max_cp=0.99999, max_events=5000):
+    """
+    Deterministic arrivals for a given lambda (lam).
+    Uses a local RNG seeded from lam so that same lam -> same arrivals & CPs,
+    while leaving the global RNG untouched (so service randomness remains).
+    """
+    # Create a local RNG seeded deterministically from lam
+    # Multiply lam by a constant and convert to int to avoid float hashing issues.
+    seed = int(round(lam * 1000000)) & 0x7fffffff
+    local_rng = random.Random(seed)
+
     arrivals = []
     cp_list = []
     cp_lookup = []
+
     t = 0.0
-    current_cp = 0.0
     prev_cp = 0.0
-    while current_cp < max_cp:
-        interarrival = -math.log(1 - random.random()) / lam
+
+    # generate interarrivals using the local RNG (exponential)
+    while True:
+        # generate exponential interarrival using the local RNG
+        u = local_rng.random()
+        interarrival = -math.log(1 - u) / lam
         t += interarrival
+
         calculated_cp = 1 - math.exp(-lam * t)
         if calculated_cp >= max_cp:
             break
-        scaled_t = round(t * 100)
-        arrivals.append(scaled_t)
+
+        # don't scale/round to integers — keep float times (rounded only for display)
+        arrivals.append(t)
         cp_list.append(round(calculated_cp, 5))
         cp_lookup.append(round(prev_cp, 5))
+
         prev_cp = calculated_cp
-        current_cp = calculated_cp
-        if len(arrivals) > 5000: break
+        if len(arrivals) >= max_events:
+            break
+
     return arrivals, cp_list, cp_lookup
 
 def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist, lam, mu, servers, service_params=""):
+    # generate arrivals (deterministic for given lam)
     arrivals, cp_list, cp_lookup = generate_arrivals_strict(lam)
     num_servers = servers
     server_end_times = [0.0] * num_servers
@@ -165,12 +184,13 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
     max_end_time = 0
 
     for i in range(len(arrivals)):
-        arrival_t = arrivals[i]
+        arrival_t = arrivals[i]     # float, deterministic for given lam
         cust_id = i + 1
-        inter = get_interarrival_time(arrival_dist, lam)
-        srv_time = get_service_time(service_dist, mu, service_params)
+
+        # DO NOT call get_interarrival_time() here — it consumes global RNG and ruins reproducibility of arrivals
+        srv_time = get_service_time(service_dist, mu, service_params)  # keep global RNG for service randomness
         queue_join_time = arrival_t
-        
+
         next_free_server_idx = server_end_times.index(min(server_end_times))
         start_t = max(arrival_t, server_end_times[next_free_server_idx])
         end_t = start_t + srv_time
@@ -182,8 +202,8 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
         max_end_time = max(max_end_time, end_t)
 
         rows.append([
-            cust_id, 
-            format_time(arrival_t),
+            cust_id,
+            format_time(arrival_t),           # display conversion remains
             round(srv_time, 2),
             f"S{next_free_server_idx+1}",
             format_time(start_t),
@@ -191,7 +211,7 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
             round(wait_t, 2),
             round(turnaround_t, 2),
             round(turnaround_t, 2),
-            cp_list[i], 
+            cp_list[i],
             cp_lookup[i]
         ])
 
