@@ -134,14 +134,11 @@ def format_time(minutes):
 
 # ---------------- 3. SIMULATION LOGIC ---------------- #
 
-def generate_arrivals_strict(lam, max_cp=0.99999, max_events=5000):
+def generate_arrivals_strict(arrival_dist, arrival_params, lam, max_cp=0.99999, max_events=5000):
     """
-    Deterministic arrivals for a given lambda (lam).
-    Uses a local RNG seeded from lam so that same lam -> same arrivals & CPs,
-    while leaving the global RNG untouched (so service randomness remains).
+    Generate arrivals using the selected arrival distribution.
+    Uses a local RNG seeded deterministically from lam for reproducibility.
     """
-    # Create a local RNG seeded deterministically from lam
-    # Multiply lam by a constant and convert to int to avoid float hashing issues.
     seed = int(round(lam * 1000000)) & 0x7fffffff
     local_rng = random.Random(seed)
 
@@ -152,31 +149,89 @@ def generate_arrivals_strict(lam, max_cp=0.99999, max_events=5000):
     t = 0.0
     prev_cp = 0.0
 
-    # generate interarrivals using the local RNG (exponential)
-    while True:
-        # generate exponential interarrival using the local RNG
-        u = local_rng.random()
-        interarrival = -math.log(1 - u) / lam
-        t += interarrival
+    for i in range(max_events):
+        # Generate interarrival time based on selected distribution
+        if arrival_dist in ["Poisson", "Exponential"]:
+            u = local_rng.random()
+            interarrival = -math.log(1 - u) / lam
+        elif arrival_dist == "Uniform":
+            mean_t = 1 / lam
+            if arrival_params and "," in arrival_params:
+                a, b = map(float, arrival_params.split(","))
+            else:
+                a, b = mean_t * 0.5, mean_t * 1.5
+            interarrival = local_rng.uniform(a, b)
+        elif arrival_dist == "Normal":
+            mean_t = 1 / lam
+            sigma = float(arrival_params) if arrival_params else mean_t * 0.2
+            interarrival = local_rng.normalvariate(mean_t, sigma)
+            interarrival = max(0.01, interarrival)
+        elif arrival_dist == "Gamma":
+            mean_t = 1 / lam
+            alpha = 2.0
+            beta = mean_t / alpha
+            interarrival = local_rng.gammavariate(alpha, beta)
+            interarrival = max(0.01, interarrival)
+        else:
+            # Default to exponential
+            u = local_rng.random()
+            interarrival = -math.log(1 - u) / lam
 
-        calculated_cp = 1 - math.exp(-lam * t)
+        t += interarrival
+        
+        # Calculate CDF based on the arrival distribution
+        if arrival_dist in ["Poisson", "Exponential"]:
+            # For Poisson process, probability of at least one arrival by time t
+            calculated_cp = 1 - math.exp(-lam * t)
+        elif arrival_dist == "Uniform":
+            mean_t = 1 / lam
+            if arrival_params and "," in arrival_params:
+                a, b = map(float, arrival_params.split(","))
+            else:
+                a, b = mean_t * 0.5, mean_t * 1.5
+            # CDF of uniform distribution
+            if t < a:
+                calculated_cp = 0.0
+            elif t > b:
+                calculated_cp = 1.0
+            else:
+                calculated_cp = (t - a) / (b - a)
+        elif arrival_dist == "Normal":
+            mean_t = 1 / lam
+            sigma = float(arrival_params) if arrival_params else mean_t * 0.2
+            # Use error function for normal CDF
+            z = (t - mean_t) / sigma
+            calculated_cp = 0.5 * (1 + math.erf(z / math.sqrt(2)))
+        elif arrival_dist == "Gamma":
+            mean_t = 1 / lam
+            alpha = 2.0
+            beta = mean_t / alpha
+            # Approximate Gamma CDF using incomplete gamma function
+            x = t / beta
+            # Use series expansion for incomplete gamma function
+            term = 1.0
+            sum_val = 1.0
+            for k in range(1, 100):
+                term *= x / (alpha + k - 1)
+                sum_val += term
+            calculated_cp = 1.0 - (x ** alpha) * math.exp(-x) * sum_val / math.gamma(alpha + 1)
+        else:
+            calculated_cp = 1 - math.exp(-lam * t)
+
         if calculated_cp >= max_cp:
             break
 
-        # don't scale/round to integers — keep float times (rounded only for display)
         arrivals.append(t)
         cp_list.append(round(calculated_cp, 5))
         cp_lookup.append(round(prev_cp, 5))
 
         prev_cp = calculated_cp
-        if len(arrivals) >= max_events:
-            break
 
     return arrivals, cp_list, cp_lookup
-
-def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist, lam, mu, servers, service_params=""):
-    # generate arrivals (deterministic for given lam)
-    arrivals, cp_list, cp_lookup = generate_arrivals_strict(lam)
+def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist, lam, mu, servers, service_params="", arrival_params=""):
+    # generate arrivals using the selected distribution
+    arrivals, cp_list, cp_lookup = generate_arrivals_strict(arrival_dist, arrival_params, lam)
+    
     num_servers = servers
     server_end_times = [0.0] * num_servers
     server_busy_log = [[] for _ in range(num_servers)]
@@ -184,11 +239,11 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
     max_end_time = 0
 
     for i in range(len(arrivals)):
-        arrival_t = arrivals[i]     # float, deterministic for given lam
+        arrival_t = arrivals[i]
         cust_id = i + 1
 
-        # DO NOT call get_interarrival_time() here — it consumes global RNG and ruins reproducibility of arrivals
-        srv_time = get_service_time(service_dist, mu, service_params)  # keep global RNG for service randomness
+        # Service time generation (unchanged)
+        srv_time = get_service_time(service_dist, mu, service_params)
         queue_join_time = arrival_t
 
         next_free_server_idx = server_end_times.index(min(server_end_times))
@@ -203,7 +258,7 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
 
         rows.append([
             cust_id,
-            format_time(arrival_t),           # display conversion remains
+            format_time(arrival_t),
             round(srv_time, 2),
             f"S{next_free_server_idx+1}",
             format_time(start_t),
@@ -217,7 +272,6 @@ def simulate_queue_engine(arrival_type, arrival_dist, service_type, service_dist
 
     df = pd.DataFrame(rows, columns=["ID","Arrival","Service","Server","Start","End","Wait","Turnaround","Response","CP","CP_Lookup"])
     return df, server_busy_log, max_end_time
-
 
 # ---------------- 5. GUI ---------------- #
 class QueueSimulatorApp:
@@ -355,7 +409,7 @@ class QueueSimulatorApp:
             lam = float(self.entry_lambda.get())
             mu = float(self.entry_mu.get())
             servers = int(self.entry_servers.get())
-
+    
             # --- VALIDATION ---
             if lam <= 0:
                 messagebox.showerror("Input Error", "Arrival rate λ must be a positive number.")
@@ -366,28 +420,36 @@ class QueueSimulatorApp:
             if servers <= 0:
                 messagebox.showerror("Input Error", "Number of servers must be at least 1.")
                 return
-
+    
+            # Get arrival parameters if G type is selected
+            arrival_params = ""
+            if self.arrival_type.get() == "G":
+                arrival_params = self.entry_arr_params.get()
+    
             df, server_log, max_end_time = simulate_queue_engine(
                 self.arrival_type.get(),
                 self.arrival_dist.get(),
                 self.service_type.get(),
                 self.service_dist.get(),
                 lam, mu, servers,
-                self.entry_svc_params.get() if self.service_type.get() == "G" else ""
+                self.entry_svc_params.get() if self.service_type.get() == "G" else "",
+                arrival_params
             )
-
+    
             # Clear old data and insert new
             for i in self.tree.get_children(): 
                 self.tree.delete(i)
             for _, r in df.iterrows(): 
                 self.tree.insert("", "end", values=r.tolist())
-
+    
             self.draw_time_charts(df)
             self.draw_sensitivity_graph()
             self.draw_gantt(server_log, max_end_time)
             self.notebook.select(self.tab_data)
+        except ValueError as e:
+            messagebox.showerror("Input Error", f"Invalid input value: {e}")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
     def draw_time_charts(self, df):
         # Clear previous charts
         for w in self.chart_frame.winfo_children():
@@ -497,10 +559,7 @@ class QueueSimulatorApp:
 
         canvas = FigureCanvasTkAgg(fig, self.tab_sens)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-
-       
+        canvas.get_tk_widget().pack(fill="both", expand=True)    
 
     def run_analytics(self):
         try:
