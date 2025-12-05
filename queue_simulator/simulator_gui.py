@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import seaborn as sns
-from matplotlib.patches import Rectangle
 
 from simulation_engine import QueueSimulator
 from queue_analytics import QueueAnalytics
@@ -21,38 +20,88 @@ class QueueSimulatorGUI:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Sapphire Shopping Outlet - Enhanced Queue Simulator")
+        self.root.title("Sapphire Shopping Outlet - Queue Simulator")
         
-        # Set style
+        # Set seaborn style for better looking plots
         sns.set_style("whitegrid")
         plt.rcParams['figure.figsize'] = [10, 6]
         plt.rcParams['figure.dpi'] = 100
+        plt.rcParams['font.size'] = 10
         
         # Initialize simulator
         self.simulator = QueueSimulator()
         self.current_df = pd.DataFrame()
         self.current_params = {}
         
-        # Create GUI
-        self.create_widgets()
+        # Create main container with scrollbar
+        self.create_main_container()
         
         # Maximize window
         self.root.state('zoomed')
     
-    def create_widgets(self):
-        """Create all GUI widgets."""
-        # Main container
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+    def create_main_container(self):
+        """Create main container with scrollbar for entire application."""
+        # Create main frame
+        main_frame = ttk.Frame(self.root)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
+        # Create canvas and scrollbar
+        self.canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=self.canvas.yview)
+        
+        # Create scrollable frame
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        
+        # Bind the scrollable frame to the canvas
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+        
+        # Create window in canvas
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind mouse wheel for scrolling
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)  # Linux scroll up
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)  # Linux scroll down
+        
+        # Create GUI widgets
+        self.create_widgets()
+    
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling."""
+        if event.num == 4 or event.delta > 0:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5 or event.delta < 0:
+            self.canvas.yview_scroll(1, "units")
+    
+    def create_widgets(self):
+        """Create all GUI widgets in the scrollable frame."""
         # Title
-        title_label = ttk.Label(main_frame, text="Sapphire Shopping Outlet Queue Simulator", 
-                               font=("Arial", 16, "bold"), foreground="#2c3e50")
-        title_label.pack(pady=(0, 10))
+        title_frame = ttk.Frame(self.scrollable_frame)
+        title_frame.pack(fill=tk.X, padx=20, pady=(10, 5))
+        
+        title_label = ttk.Label(title_frame, 
+                               text="Sapphire Shopping Outlet - Queue Simulator",
+                               font=("Arial", 18, "bold"),
+                               foreground="#2c3e50")
+        title_label.pack()
+        
+        subtitle_label = ttk.Label(title_frame,
+                                  text="Advanced Queueing Theory Simulation Tool",
+                                  font=("Arial", 10),
+                                  foreground="#7f8c8d")
+        subtitle_label.pack(pady=(0, 10))
         
         # Notebook for tabs
-        self.notebook = ttk.Notebook(main_frame)
-        self.notebook.pack(fill=tk.BOTH, expand=True)
+        self.notebook = ttk.Notebook(self.scrollable_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
         
         # Create tabs in order
         self.create_setup_tab()
@@ -63,34 +112,37 @@ class QueueSimulatorGUI:
         self.create_sensitivity_tab()
         
         # Status bar
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        status_frame = ttk.Frame(self.scrollable_frame)
+        status_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
+        
+        self.status_var = tk.StringVar(value="Ready")
+        status_bar = ttk.Label(status_frame, textvariable=self.status_var, 
+                               relief=tk.SUNKEN, anchor=tk.W, padding=5)
+        status_bar.pack(fill=tk.X)
     
     def create_setup_tab(self):
-        """Create setup/configuration tab."""
+        """Create setup/configuration tab with better layout."""
         self.setup_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.setup_frame, text="⚙️ Setup")
         
-        # Main container with scroll
+        # Create a canvas for the setup tab as well
         setup_canvas = tk.Canvas(self.setup_frame)
-        scrollbar = ttk.Scrollbar(self.setup_frame, orient="vertical", command=setup_canvas.yview)
-        self.setup_scroll_frame = ttk.Frame(setup_canvas)
+        setup_scrollbar = ttk.Scrollbar(self.setup_frame, orient="vertical", command=setup_canvas.yview)
+        setup_inner_frame = ttk.Frame(setup_canvas)
         
-        self.setup_scroll_frame.bind(
+        setup_inner_frame.bind(
             "<Configure>",
             lambda e: setup_canvas.configure(scrollregion=setup_canvas.bbox("all"))
         )
         
-        setup_canvas.create_window((0, 0), window=self.setup_scroll_frame, anchor="nw")
-        setup_canvas.configure(yscrollcommand=scrollbar.set)
+        setup_canvas.create_window((0, 0), window=setup_inner_frame, anchor="nw")
+        setup_canvas.configure(yscrollcommand=setup_scrollbar.set)
         
-        setup_canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        setup_canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        setup_scrollbar.pack(side="right", fill="y")
         
         # Simulation Method Selection
-        method_frame = ttk.LabelFrame(self.setup_scroll_frame, text="Simulation Method", padding="10")
+        method_frame = ttk.LabelFrame(setup_inner_frame, text="Simulation Method", padding=15)
         method_frame.pack(fill="x", padx=10, pady=10)
         
         self.sim_method = tk.StringVar(value="cp")
@@ -99,11 +151,11 @@ class QueueSimulatorGUI:
         ttk.Radiobutton(method_frame, text="Fixed Number of Customers", 
                        variable=self.sim_method, value="fixed").pack(anchor="w", padx=10, pady=5)
         
-        # Fixed customers entry (hidden by default)
+        # Fixed customers entry (initially hidden)
         self.fixed_frame = ttk.Frame(method_frame)
         self.fixed_frame.pack(fill="x", padx=30, pady=5)
         ttk.Label(self.fixed_frame, text="Number of Customers:").pack(side="left", padx=(0, 10))
-        self.customers_entry = ttk.Entry(self.fixed_frame, width=10)
+        self.customers_entry = ttk.Entry(self.fixed_frame, width=15)
         self.customers_entry.pack(side="left")
         self.customers_entry.insert(0, "100")
         self.fixed_frame.pack_forget()  # Hide initially
@@ -112,114 +164,387 @@ class QueueSimulatorGUI:
         self.sim_method.trace('w', self.toggle_sim_method)
         
         # Arrival Configuration
-        arrival_frame = ttk.LabelFrame(self.setup_scroll_frame, text="Arrival Process Configuration", padding="10")
+        arrival_frame = ttk.LabelFrame(setup_inner_frame, text="Arrival Process Configuration", padding=15)
         arrival_frame.pack(fill="x", padx=10, pady=10)
         
-        # Arrival Type
-        ttk.Label(arrival_frame, text="Arrival Type:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        # Use grid for better alignment
+        arrival_frame.columnconfigure(0, weight=1)
+        arrival_frame.columnconfigure(1, weight=2)
+        arrival_frame.columnconfigure(2, weight=1)
+        arrival_frame.columnconfigure(3, weight=2)
+        
+        # Row 0: Arrival Type
+        ttk.Label(arrival_frame, text="Arrival Type:", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
         
         self.arrival_type = tk.StringVar(value="M")
         arrival_type_frame = ttk.Frame(arrival_frame)
-        arrival_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=5)
+        arrival_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=10)
         
         ttk.Radiobutton(arrival_type_frame, text="M (Markovian)", 
-                       variable=self.arrival_type, value="M").pack(side="left", padx=5)
+                       variable=self.arrival_type, value="M").pack(side="left", padx=10)
         ttk.Radiobutton(arrival_type_frame, text="G (General)", 
-                       variable=self.arrival_type, value="G").pack(side="left", padx=5)
+                       variable=self.arrival_type, value="G").pack(side="left", padx=10)
         
-        # Arrival Rate
-        ttk.Label(arrival_frame, text="Arrival Rate (λ):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.lambda_entry = ttk.Entry(arrival_frame, width=15)
-        self.lambda_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        # Row 1: Arrival Rate
+        ttk.Label(arrival_frame, text="Arrival Rate (λ):").grid(
+            row=1, column=0, sticky="w", padx=10, pady=5)
+        self.lambda_entry = ttk.Entry(arrival_frame, width=20)
+        self.lambda_entry.grid(row=1, column=1, sticky="w", padx=10, pady=5)
         self.lambda_entry.insert(0, "0.5")
+        ttk.Label(arrival_frame, text="customers per time unit").grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=10, pady=5)
         
-        # Arrival Distribution
-        ttk.Label(arrival_frame, text="Distribution:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        # Row 2: Arrival Distribution
+        ttk.Label(arrival_frame, text="Distribution:").grid(
+            row=2, column=0, sticky="w", padx=10, pady=5)
         self.arrival_dist = tk.StringVar(value="Exponential")
         self.arrival_dist_combo = ttk.Combobox(arrival_frame, textvariable=self.arrival_dist,
                                               values=["Exponential", "Poisson", "Uniform", "Normal", "Gamma"],
-                                              state="readonly", width=15)
-        self.arrival_dist_combo.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+                                              state="readonly", width=20)
+        self.arrival_dist_combo.grid(row=2, column=1, sticky="w", padx=10, pady=5)
         
-        # Arrival Parameters
-        ttk.Label(arrival_frame, text="Parameters:").grid(row=2, column=2, sticky="w", padx=5, pady=5)
-        self.arrival_params = ttk.Entry(arrival_frame, width=20)
-        self.arrival_params.grid(row=2, column=3, sticky="w", padx=5, pady=5)
+        # Row 2: Arrival Parameters
+        ttk.Label(arrival_frame, text="Parameters:").grid(
+            row=2, column=2, sticky="w", padx=10, pady=5)
+        self.arrival_params = ttk.Entry(arrival_frame, width=25)
+        self.arrival_params.grid(row=2, column=3, sticky="w", padx=10, pady=5)
         self.arrival_params.insert(0, "rate=0.5")
-        ttk.Label(arrival_frame, text="e.g., rate=0.5, min=1,max=3, mean=2,std=0.5", 
-                 font=("Arial", 8), foreground="gray").grid(row=3, column=1, columnspan=3, sticky="w", padx=5)
+        
+        # Parameter help
+        param_help = ttk.Label(arrival_frame, 
+                              text="Examples: rate=0.5, min=1,max=3, mean=2,std=0.5, shape=2,scale=0.5",
+                              font=("Arial", 8), foreground="#7f8c8d")
+        param_help.grid(row=3, column=1, columnspan=3, sticky="w", padx=10, pady=(0, 10))
         
         # Service Configuration
-        service_frame = ttk.LabelFrame(self.setup_scroll_frame, text="Service Process Configuration", padding="10")
+        service_frame = ttk.LabelFrame(setup_inner_frame, text="Service Process Configuration", padding=15)
         service_frame.pack(fill="x", padx=10, pady=10)
         
-        # Service Type
-        ttk.Label(service_frame, text="Service Type:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        service_frame.columnconfigure(0, weight=1)
+        service_frame.columnconfigure(1, weight=2)
+        service_frame.columnconfigure(2, weight=1)
+        service_frame.columnconfigure(3, weight=2)
+        
+        # Row 0: Service Type
+        ttk.Label(service_frame, text="Service Type:", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
         
         self.service_type = tk.StringVar(value="M")
         service_type_frame = ttk.Frame(service_frame)
-        service_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=5)
+        service_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=10)
         
         ttk.Radiobutton(service_type_frame, text="M (Markovian)", 
-                       variable=self.service_type, value="M").pack(side="left", padx=5)
+                       variable=self.service_type, value="M").pack(side="left", padx=10)
         ttk.Radiobutton(service_type_frame, text="G (General)", 
-                       variable=self.service_type, value="G").pack(side="left", padx=5)
+                       variable=self.service_type, value="G").pack(side="left", padx=10)
         
-        # Service Rate
-        ttk.Label(service_frame, text="Service Rate (μ):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.mu_entry = ttk.Entry(service_frame, width=15)
-        self.mu_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        # Row 1: Service Rate
+        ttk.Label(service_frame, text="Service Rate (μ):").grid(
+            row=1, column=0, sticky="w", padx=10, pady=5)
+        self.mu_entry = ttk.Entry(service_frame, width=20)
+        self.mu_entry.grid(row=1, column=1, sticky="w", padx=10, pady=5)
         self.mu_entry.insert(0, "1.0")
+        ttk.Label(service_frame, text="customers per time unit").grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=10, pady=5)
         
-        # Service Distribution
-        ttk.Label(service_frame, text="Distribution:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        # Row 2: Service Distribution
+        ttk.Label(service_frame, text="Distribution:").grid(
+            row=2, column=0, sticky="w", padx=10, pady=5)
         self.service_dist = tk.StringVar(value="Exponential")
         self.service_dist_combo = ttk.Combobox(service_frame, textvariable=self.service_dist,
                                               values=["Exponential", "Poisson", "Uniform", "Normal", "Gamma"],
-                                              state="readonly", width=15)
-        self.service_dist_combo.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+                                              state="readonly", width=20)
+        self.service_dist_combo.grid(row=2, column=1, sticky="w", padx=10, pady=5)
         
-        # Service Parameters
-        ttk.Label(service_frame, text="Parameters:").grid(row=2, column=2, sticky="w", padx=5, pady=5)
-        self.service_params = ttk.Entry(service_frame, width=20)
-        self.service_params.grid(row=2, column=3, sticky="w", padx=5, pady=5)
+        # Row 2: Service Parameters
+        ttk.Label(service_frame, text="Parameters:").grid(
+            row=2, column=2, sticky="w", padx=10, pady=5)
+        self.service_params = ttk.Entry(service_frame, width=25)
+        self.service_params.grid(row=2, column=3, sticky="w", padx=10, pady=5)
         self.service_params.insert(0, "rate=1.0")
         
         # System Configuration
-        system_frame = ttk.LabelFrame(self.setup_scroll_frame, text="System Configuration", padding="10")
+        system_frame = ttk.LabelFrame(setup_inner_frame, text="System Configuration", padding=15)
         system_frame.pack(fill="x", padx=10, pady=10)
         
-        # Number of Servers
-        ttk.Label(system_frame, text="Number of Servers (c):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.servers_entry = ttk.Entry(system_frame, width=10)
-        self.servers_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+        system_frame.columnconfigure(0, weight=1)
+        system_frame.columnconfigure(1, weight=2)
+        system_frame.columnconfigure(2, weight=1)
+        system_frame.columnconfigure(3, weight=2)
+        
+        # Row 0: Number of Servers
+        ttk.Label(system_frame, text="Number of Servers (c):").grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
+        self.servers_entry = ttk.Entry(system_frame, width=20)
+        self.servers_entry.grid(row=0, column=1, sticky="w", padx=10, pady=10)
         self.servers_entry.insert(0, "1")
         
-        # Max CP for simulation
-        ttk.Label(system_frame, text="Max CP (for CP-based):").grid(row=0, column=2, sticky="w", padx=5, pady=5)
-        self.max_cp_entry = ttk.Entry(system_frame, width=10)
-        self.max_cp_entry.grid(row=0, column=3, sticky="w", padx=5, pady=5)
+        # Row 0: Max CP for simulation
+        ttk.Label(system_frame, text="Max CP (for CP-based):").grid(
+            row=0, column=2, sticky="w", padx=10, pady=10)
+        self.max_cp_entry = ttk.Entry(system_frame, width=20)
+        self.max_cp_entry.grid(row=0, column=3, sticky="w", padx=10, pady=10)
         self.max_cp_entry.insert(0, "0.99999")
         
         # Control Buttons
-        button_frame = ttk.Frame(self.setup_scroll_frame)
+        button_frame = ttk.Frame(setup_inner_frame)
         button_frame.pack(fill="x", padx=10, pady=20)
         
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+        button_frame.columnconfigure(2, weight=1)
+        button_frame.columnconfigure(3, weight=1)
+        
         ttk.Button(button_frame, text="🚀 Run Simulation", 
-                  command=self.run_simulation, width=20).pack(side="left", padx=5)
+                  command=self.run_simulation, width=18).grid(row=0, column=0, padx=5, pady=5)
         ttk.Button(button_frame, text="📊 Analytical Results", 
-                  command=self.show_analytics, width=20).pack(side="left", padx=5)
+                  command=self.show_analytics, width=18).grid(row=0, column=1, padx=5, pady=5)
         ttk.Button(button_frame, text="📈 Sensitivity Analysis", 
-                  command=self.run_sensitivity, width=20).pack(side="left", padx=5)
+                  command=self.run_sensitivity, width=18).grid(row=0, column=2, padx=5, pady=5)
         ttk.Button(button_frame, text="🔄 Reset All", 
-                  command=self.reset_all, width=20).pack(side="left", padx=5)
+                  command=self.reset_all, width=18).grid(row=0, column=3, padx=5, pady=5)
+        
+        # Export and Help buttons in second row
         ttk.Button(button_frame, text="💾 Export Results", 
-                  command=self.export_results, width=20).pack(side="left", padx=5)
+                  command=self.export_results, width=18).grid(row=1, column=0, padx=5, pady=5)
+        ttk.Button(button_frame, text="ℹ️ Help", 
+                  command=self.show_help, width=18).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(button_frame, text="📊 View All Charts", 
+                  command=self.show_all_charts, width=18).grid(row=1, column=2, padx=5, pady=5)
+        ttk.Button(button_frame, text="🔍 Quick Stats", 
+                  command=self.show_quick_stats, width=18).grid(row=1, column=3, padx=5, pady=5)
         
         # Bind events
         self.arrival_type.trace('w', self.update_distribution_options)
         self.service_type.trace('w', self.update_distribution_options)
         self.update_distribution_options()
+    
+    def show_help(self):
+        """Show help dialog."""
+        help_text = """
+        🎯 Sapphire Shopping Outlet Queue Simulator Help
+        
+        📋 SIMULATION METHODS:
+        • CP-based: Simulates until cumulative probability reaches 0.99999
+        • Fixed Customers: Simulates specified number of customers
+        
+        📊 DISTRIBUTIONS:
+        • Markovian (M): Exponential or Poisson distributions
+        • General (G): Uniform, Normal, or Gamma distributions
+        
+        ⚙️ PARAMETERS:
+        • Exponential/Poisson: rate=λ (e.g., rate=0.5)
+        • Uniform: min=a,max=b (e.g., min=1,max=3)
+        • Normal: mean=μ,std=σ (e.g., mean=2,std=0.5)
+        • Gamma: shape=k,scale=θ (e.g., shape=2,scale=0.5)
+        
+        📈 OUTPUT COLUMNS:
+        • CP: Cumulative Probability (0 to 0.99999)
+        • CP_Lookup: Previous CP value
+        
+        💡 TIPS:
+        1. Start with λ < c×μ for stable system
+        2. Use Sensitivity Analysis to find optimal parameters
+        3. Check Analytical Results for theoretical values
+        """
+        
+        help_window = tk.Toplevel(self.root)
+        help_window.title("Help - Queue Simulator")
+        help_window.geometry("600x500")
+        
+        text_widget = scrolledtext.ScrolledText(help_window, wrap=tk.WORD, 
+                                               font=("Consolas", 10), height=25)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text_widget.insert(tk.END, help_text)
+        text_widget.config(state=tk.DISABLED)
+    
+    def show_all_charts(self):
+        """Show all charts in a separate window."""
+        if self.current_df.empty:
+            messagebox.showinfo("No Data", "Run simulation first to see charts.")
+            return
+        
+        charts_window = tk.Toplevel(self.root)
+        charts_window.title("All Charts - Queue Simulator")
+        charts_window.geometry("1200x800")
+        
+        # Create notebook for charts
+        charts_notebook = ttk.Notebook(charts_window)
+        charts_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Performance Charts
+        perf_frame = ttk.Frame(charts_notebook)
+        charts_notebook.add(perf_frame, text="Performance Charts")
+        self.create_performance_charts(perf_frame)
+        
+        # Distribution Charts
+        dist_frame = ttk.Frame(charts_notebook)
+        charts_notebook.add(dist_frame, text="Distribution Analysis")
+        self.create_distribution_charts(dist_frame)
+        
+        # CP Analysis
+        cp_frame = ttk.Frame(charts_notebook)
+        charts_notebook.add(cp_frame, text="CP Analysis")
+        self.create_cp_charts(cp_frame)
+    
+    def create_performance_charts(self, parent):
+        """Create performance charts."""
+        fig = Figure(figsize=(10, 8), dpi=100)
+        
+        # Subplot 1: Wait Time
+        ax1 = fig.add_subplot(221)
+        ax1.plot(self.current_df['ID'], self.current_df['Wait'], 'b-', linewidth=2)
+        ax1.set_title('Wait Time Progression')
+        ax1.set_xlabel('Customer ID')
+        ax1.set_ylabel('Wait Time')
+        ax1.grid(True, alpha=0.3)
+        
+        # Subplot 2: Service Time
+        ax2 = fig.add_subplot(222)
+        ax2.plot(self.current_df['ID'], self.current_df['Service'], 'g-', linewidth=2)
+        ax2.set_title('Service Time Distribution')
+        ax2.set_xlabel('Customer ID')
+        ax2.set_ylabel('Service Time')
+        ax2.grid(True, alpha=0.3)
+        
+        # Subplot 3: Turnaround Time
+        ax3 = fig.add_subplot(223)
+        ax3.plot(self.current_df['ID'], self.current_df['Turnaround'], 'r-', linewidth=2)
+        ax3.set_title('Turnaround Time Progression')
+        ax3.set_xlabel('Customer ID')
+        ax3.set_ylabel('Turnaround Time')
+        ax3.grid(True, alpha=0.3)
+        
+        # Subplot 4: CP vs Time
+        ax4 = fig.add_subplot(224)
+        ax4.plot(self.current_df['Arrival'], self.current_df['CP'], 'm-', linewidth=2)
+        ax4.set_title('CP vs Arrival Time')
+        ax4.set_xlabel('Arrival Time')
+        ax4.set_ylabel('Cumulative Probability (CP)')
+        ax4.grid(True, alpha=0.3)
+        
+        fig.tight_layout(pad=3.0)
+        
+        canvas = FigureCanvasTkAgg(fig, parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    
+    def create_distribution_charts(self, parent):
+        """Create distribution analysis charts."""
+        fig = Figure(figsize=(10, 8), dpi=100)
+        
+        # Subplot 1: Histogram of Wait Times
+        ax1 = fig.add_subplot(221)
+        ax1.hist(self.current_df['Wait'], bins=20, color='skyblue', edgecolor='black', alpha=0.7)
+        ax1.set_title('Wait Time Distribution')
+        ax1.set_xlabel('Wait Time')
+        ax1.set_ylabel('Frequency')
+        ax1.grid(True, alpha=0.3)
+        
+        # Subplot 2: Box plot of all times
+        ax2 = fig.add_subplot(222)
+        data_to_plot = [self.current_df['Wait'], 
+                       self.current_df['Service'], 
+                       self.current_df['Turnaround']]
+        ax2.boxplot(data_to_plot, labels=['Wait', 'Service', 'Turnaround'])
+        ax2.set_title('Time Distribution Comparison')
+        ax2.set_ylabel('Time')
+        ax2.grid(True, alpha=0.3)
+        
+        # Subplot 3: Scatter plot: Service vs Wait
+        ax3 = fig.add_subplot(223)
+        ax3.scatter(self.current_df['Service'], self.current_df['Wait'], 
+                   alpha=0.5, c='blue', s=20)
+        ax3.set_title('Service Time vs Wait Time')
+        ax3.set_xlabel('Service Time')
+        ax3.set_ylabel('Wait Time')
+        ax3.grid(True, alpha=0.3)
+        
+        # Subplot 4: CDF of Wait Times
+        ax4 = fig.add_subplot(224)
+        sorted_wait = np.sort(self.current_df['Wait'])
+        cdf = np.arange(1, len(sorted_wait) + 1) / len(sorted_wait)
+        ax4.plot(sorted_wait, cdf, 'r-', linewidth=2)
+        ax4.set_title('CDF of Wait Times')
+        ax4.set_xlabel('Wait Time')
+        ax4.set_ylabel('Cumulative Probability')
+        ax4.grid(True, alpha=0.3)
+        
+        fig.tight_layout(pad=3.0)
+        
+        canvas = FigureCanvasTkAgg(fig, parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    
+    def create_cp_charts(self, parent):
+        """Create CP analysis charts."""
+        fig = Figure(figsize=(10, 8), dpi=100)
+        
+        # Subplot 1: CP vs Customer ID
+        ax1 = fig.add_subplot(221)
+        ax1.plot(self.current_df['ID'], self.current_df['CP'], 'b-', linewidth=2)
+        ax1.axhline(y=0.99999, color='r', linestyle='--', alpha=0.5, label='Target CP=0.99999')
+        ax1.set_title('CP Progression')
+        ax1.set_xlabel('Customer ID')
+        ax1.set_ylabel('Cumulative Probability')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # Subplot 2: Arrival Time vs CP
+        ax2 = fig.add_subplot(222)
+        ax2.plot(self.current_df['Arrival'], self.current_df['CP'], 'g-', linewidth=2)
+        ax2.set_title('CP vs Arrival Time')
+        ax2.set_xlabel('Arrival Time')
+        ax2.set_ylabel('CP')
+        ax2.grid(True, alpha=0.3)
+        
+        # Subplot 3: CP difference
+        ax3 = fig.add_subplot(223)
+        cp_diff = self.current_df['CP'] - self.current_df['CP_Lookup']
+        ax3.plot(self.current_df['ID'], cp_diff, 'r-', linewidth=2)
+        ax3.set_title('CP Increment per Customer')
+        ax3.set_xlabel('Customer ID')
+        ax3.set_ylabel('ΔCP')
+        ax3.grid(True, alpha=0.3)
+        
+        # Subplot 4: Histogram of CP increments
+        ax4 = fig.add_subplot(224)
+        ax4.hist(cp_diff, bins=20, color='purple', edgecolor='black', alpha=0.7)
+        ax4.set_title('Distribution of CP Increments')
+        ax4.set_xlabel('ΔCP')
+        ax4.set_ylabel('Frequency')
+        ax4.grid(True, alpha=0.3)
+        
+        fig.tight_layout(pad=3.0)
+        
+        canvas = FigureCanvasTkAgg(fig, parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    
+    def show_quick_stats(self):
+        """Show quick statistics in a dialog."""
+        if self.current_df.empty:
+            messagebox.showinfo("No Data", "Run simulation first to see statistics.")
+            return
+        
+        stats = self.simulator.get_summary_statistics(self.current_df)
+        
+        stats_text = "📊 QUICK STATISTICS\n"
+        stats_text += "=" * 50 + "\n\n"
+        
+        for key, value in stats.items():
+            stats_text += f"{key:25}: {value}\n"
+        
+        stats_window = tk.Toplevel(self.root)
+        stats_window.title("Quick Statistics")
+        stats_window.geometry("500x400")
+        
+        text_widget = scrolledtext.ScrolledText(stats_window, wrap=tk.WORD, 
+                                               font=("Consolas", 10), height=20)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text_widget.insert(tk.END, stats_text)
+        text_widget.config(state=tk.DISABLED)
     
     def toggle_sim_method(self, *args):
         """Toggle between CP-based and fixed number simulation."""
@@ -256,6 +581,7 @@ class QueueSimulatorGUI:
         """Parse parameters string to dictionary."""
         params = {}
         if params_str:
+            # Remove spaces and split by comma
             items = params_str.replace(" ", "").split(",")
             for item in items:
                 if "=" in item:
@@ -292,7 +618,6 @@ class QueueSimulatorGUI:
             
             # Run simulation based on selected method
             if self.sim_method.get() == "cp":
-                max_cp = float(self.max_cp_entry.get())
                 if num_servers == 1:
                     df = self.simulator.simulate_single_server_cp(
                         self.arrival_dist.get(), arrival_params,
@@ -348,12 +673,24 @@ class QueueSimulatorGUI:
             # Switch to simulation tab
             self.notebook.select(1)  # Simulation tab
             
-            self.status_var.set(f"Simulation completed: {len(df)} customers processed")
-            messagebox.showinfo("Success", 
-                              f"Simulation completed successfully!\n"
-                              f"Processed {len(df)} customers\n"
-                              f"Total time: {df['End'].max():.2f}\n"
-                              f"Avg wait time: {df['Wait'].mean():.2f}")
+            # Check CP value
+            if not df.empty:
+                max_cp = df['CP'].max()
+                self.status_var.set(f"Simulation completed: {len(df)} customers, Max CP={max_cp:.5f}")
+                
+                if self.sim_method.get() == "cp" and max_cp < 0.99999:
+                    messagebox.showwarning("CP Not Reached", 
+                                         f"Maximum CP reached: {max_cp:.5f}\n"
+                                         f"Consider increasing max events in code.")
+                else:
+                    messagebox.showinfo("Success", 
+                                      f"Simulation completed successfully!\n"
+                                      f"Processed {len(df)} customers\n"
+                                      f"Total time: {df['End'].max():.2f}\n"
+                                      f"Avg wait time: {df['Wait'].mean():.2f}")
+            else:
+                self.status_var.set("Simulation completed with no data")
+                messagebox.showwarning("No Data", "Simulation produced no data. Check parameters.")
             
         except ValueError as e:
             messagebox.showerror("Input Error", f"Invalid input value: {str(e)}")
@@ -384,10 +721,10 @@ class QueueSimulatorGUI:
         container.pack(fill=tk.BOTH, expand=True)
         
         # Treeview
-        self.tree = ttk.Treeview(container, columns=columns, show="headings", height=25)
+        self.tree = ttk.Treeview(container, columns=columns, show="headings", height=20)
         
         # Configure columns
-        col_widths = [50, 80, 80, 60, 80, 80, 80, 100, 80, 80, 80]
+        col_widths = [50, 80, 80, 60, 80, 80, 80, 100, 80, 80, 90]
         for i, col in enumerate(columns):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=col_widths[i], anchor=tk.CENTER)
@@ -448,29 +785,33 @@ class QueueSimulatorGUI:
         # Simulation info
         self.metrics_text.insert(tk.END, "📊 SIMULATION INFO\n")
         self.metrics_text.insert(tk.END, "-" * 40 + "\n")
-        self.metrics_text.insert(tk.END, f"Simulation Method: {'CP-based' if self.sim_method.get() == 'cp' else 'Fixed customers'}\n")
+        self.metrics_text.insert(tk.END, f"Simulation Method: {'CP-based (until CP=0.99999)' if self.sim_method.get() == 'cp' else 'Fixed customers'}\n")
         self.metrics_text.insert(tk.END, f"Total Customers: {len(df)}\n")
         self.metrics_text.insert(tk.END, f"Arrival Distribution: {self.arrival_dist.get()}\n")
         self.metrics_text.insert(tk.END, f"Service Distribution: {self.service_dist.get()}\n")
-        self.metrics_text.insert(tk.END, f"Number of Servers: {self.servers_entry.get()}\n\n")
+        self.metrics_text.insert(tk.END, f"Number of Servers: {self.servers_entry.get()}\n")
+        if not df.empty:
+            self.metrics_text.insert(tk.END, f"Max CP Achieved: {df['CP'].max():.5f}\n")
+        self.metrics_text.insert(tk.END, f"Traffic Intensity (ρ): {float(self.lambda_entry.get()) / (int(self.servers_entry.get()) * float(self.mu_entry.get())):.4f}\n\n")
         
-        # Basic metrics
+        # Time metrics
         self.metrics_text.insert(tk.END, "⏱️  TIME METRICS\n")
         self.metrics_text.insert(tk.END, "-" * 40 + "\n")
         
-        time_metrics = [
-            ("Average Service Time", df["Service"].mean()),
-            ("Average Wait Time", df["Wait"].mean()),
-            ("Average Turnaround Time", df["Turnaround"].mean()),
-            ("Average Response Time", df["Response"].mean()),
-            ("Maximum Wait Time", df["Wait"].max()),
-            ("Minimum Wait Time", df["Wait"].min()),
-            ("Std Deviation Wait", df["Wait"].std()),
-            ("Median Wait Time", df["Wait"].median())
-        ]
-        
-        for name, value in time_metrics:
-            self.metrics_text.insert(tk.END, f"{name:25}: {value:.4f}\n")
+        if not df.empty:
+            time_metrics = [
+                ("Average Service Time", df["Service"].mean()),
+                ("Average Wait Time", df["Wait"].mean()),
+                ("Average Turnaround Time", df["Turnaround"].mean()),
+                ("Average Response Time", df["Response"].mean()),
+                ("Maximum Wait Time", df["Wait"].max()),
+                ("Minimum Wait Time", df["Wait"].min()),
+                ("Std Deviation Wait", df["Wait"].std()),
+                ("Median Wait Time", df["Wait"].median())
+            ]
+            
+            for name, value in time_metrics:
+                self.metrics_text.insert(tk.END, f"{name:25}: {value:.4f}\n")
         
         # System metrics
         self.metrics_text.insert(tk.END, "\n⚙️  SYSTEM METRICS\n")
@@ -479,8 +820,7 @@ class QueueSimulatorGUI:
         system_metrics = [
             ("Server Utilization", f"{self.simulator.metrics.get('utilization', 0):.2f}%"),
             ("Throughput", f"{self.simulator.metrics.get('throughput', 0):.4f} cust/time"),
-            ("Total Simulation Time", f"{self.simulator.metrics.get('total_time', 0):.2f}"),
-            ("Traffic Intensity (ρ)", f"{float(self.lambda_entry.get()) / (int(self.servers_entry.get()) * float(self.mu_entry.get())):.4f}")
+            ("Total Simulation Time", f"{self.simulator.metrics.get('total_time', 0):.2f}")
         ]
         
         for name, value in system_metrics:
@@ -490,10 +830,11 @@ class QueueSimulatorGUI:
         self.metrics_text.insert(tk.END, "\n📈 WAIT TIME DISTRIBUTION\n")
         self.metrics_text.insert(tk.END, "-" * 40 + "\n")
         
-        percentiles = [25, 50, 75, 90, 95, 99]
-        for p in percentiles:
-            value = df["Wait"].quantile(p/100)
-            self.metrics_text.insert(tk.END, f"{p}th Percentile{'':15}: {value:.4f}\n")
+        if not df.empty:
+            percentiles = [25, 50, 75, 90, 95, 99]
+            for p in percentiles:
+                value = df["Wait"].quantile(p/100)
+                self.metrics_text.insert(tk.END, f"{p}th Percentile{'':15}: {value:.4f}\n")
         
         self.metrics_text.config(state=tk.DISABLED)
     
@@ -559,7 +900,7 @@ class QueueSimulatorGUI:
                 sim_metrics = {
                     "Avg Wait (Wq)": self.current_df["Wait"].mean(),
                     "Avg Turnaround (W)": self.current_df["Turnaround"].mean(),
-                    "System Customers (L)": len(self.current_df) / self.current_df["End"].max() * self.current_df["Turnaround"].mean() if self.current_df["End"].max() > 0 else 0
+                    "System Customers (L)": self.current_df["Wait"].mean() * float(self.lambda_entry.get())
                 }
                 
                 theo_metrics = {
@@ -595,21 +936,37 @@ class QueueSimulatorGUI:
         self.charts_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.charts_frame, text="📊 Performance Charts")
         
-        # Create figure with multiple subplots
-        self.charts_fig = Figure(figsize=(12, 8), dpi=100)
+        # Create canvas for charts with scrollbar
+        charts_canvas = tk.Canvas(self.charts_frame)
+        charts_scrollbar = ttk.Scrollbar(self.charts_frame, orient="vertical", command=charts_canvas.yview)
+        charts_inner_frame = ttk.Frame(charts_canvas)
         
-        # Create subplots (3 rows, 1 column)
+        charts_inner_frame.bind(
+            "<Configure>",
+            lambda e: charts_canvas.configure(scrollregion=charts_canvas.bbox("all"))
+        )
+        
+        charts_canvas.create_window((0, 0), window=charts_inner_frame, anchor="nw")
+        charts_canvas.configure(yscrollcommand=charts_scrollbar.set)
+        
+        charts_canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        charts_scrollbar.pack(side="right", fill="y")
+        
+        # Create figure with multiple subplots
+        self.charts_fig = Figure(figsize=(10, 12), dpi=100)
+        
+        # Create subplots
         self.chart_ax1 = self.charts_fig.add_subplot(311)  # Wait time
         self.chart_ax2 = self.charts_fig.add_subplot(312)  # Turnaround time
         self.chart_ax3 = self.charts_fig.add_subplot(313)  # Service time
         
         # Create canvas
-        self.charts_canvas = FigureCanvasTkAgg(self.charts_fig, self.charts_frame)
-        self.charts_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.charts_canvas = FigureCanvasTkAgg(self.charts_fig, charts_inner_frame)
+        self.charts_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
         # Add toolbar
-        toolbar_frame = ttk.Frame(self.charts_frame)
-        toolbar_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        toolbar_frame = ttk.Frame(charts_inner_frame)
+        toolbar_frame.pack(fill=tk.X, pady=(10, 0))
         
         toolbar = NavigationToolbar2Tk(self.charts_canvas, toolbar_frame)
         toolbar.update()
@@ -630,7 +987,7 @@ class QueueSimulatorGUI:
         self.chart_ax2.set_title("Turnaround Time per Customer", fontsize=12, fontweight='bold')
         self.chart_ax3.set_title("Service Time per Customer", fontsize=12, fontweight='bold')
         
-        self.charts_fig.tight_layout()
+        self.charts_fig.tight_layout(pad=3.0)
         self.charts_canvas.draw()
     
     def update_charts_tab(self, df: pd.DataFrame):
@@ -696,8 +1053,8 @@ class QueueSimulatorGUI:
         self.chart_ax3.legend()
         self.chart_ax3.grid(True, alpha=0.3, axis='y')
         
-        # Adjust layout
-        self.charts_fig.tight_layout()
+        # Adjust layout with more padding
+        self.charts_fig.tight_layout(pad=3.0, h_pad=2.0)
         
         # Update canvas
         self.charts_canvas.draw()
@@ -756,17 +1113,17 @@ class QueueSimulatorGUI:
             start_time = row['Start']
             duration = row['Service']
             
-            # Create rectangle for the service time
-            rect = Rectangle(
-                (start_time, server_idx - 0.3),
+            # Create bar for the service time
+            self.gantt_ax.barh(
+                server_idx,
                 duration,
-                0.6,
-                facecolor=colors[idx % len(colors)],
+                left=start_time,
+                height=0.6,
+                color=colors[idx % len(colors)],
                 edgecolor='black',
                 alpha=0.8,
                 linewidth=1
             )
-            self.gantt_ax.add_patch(rect)
             
             # Add customer ID label
             if duration > 0.1:  # Only add label if duration is significant
@@ -779,26 +1136,6 @@ class QueueSimulatorGUI:
                     fontsize=8,
                     fontweight='bold',
                     color='white'
-                )
-            
-            # Add wait time indicator (if any)
-            wait_time = row['Wait']
-            if wait_time > 0.01:
-                # Draw a dashed line for wait time
-                self.gantt_ax.plot(
-                    [row['Arrival'], start_time],
-                    [server_idx, server_idx],
-                    'k--',
-                    linewidth=1,
-                    alpha=0.5
-                )
-                # Add wait time marker
-                self.gantt_ax.plot(
-                    row['Arrival'],
-                    server_idx,
-                    'ro',
-                    markersize=4,
-                    alpha=0.7
                 )
         
         # Set y-axis labels
@@ -829,16 +1166,7 @@ class QueueSimulatorGUI:
             bbox=props
         )
         
-        # Add legend for colors
-        self.gantt_ax.text(
-            0.02, 0.02,
-            "Colors represent different customers",
-            transform=self.gantt_ax.transAxes,
-            fontsize=9,
-            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.5)
-        )
-        
-        # Set title
+        # Add title
         title = f"Gantt Chart - {len(plot_df)} Customers on {len(servers)} Server(s)"
         self.gantt_ax.set_title(title, fontsize=14, fontweight='bold')
         
@@ -846,7 +1174,7 @@ class QueueSimulatorGUI:
         self.gantt_ax.grid(True, alpha=0.3, linestyle='--')
         
         # Adjust layout
-        self.gantt_fig.tight_layout()
+        self.gantt_fig.tight_layout(pad=3.0)
         
         # Update canvas
         self.gantt_canvas.draw()
@@ -857,25 +1185,32 @@ class QueueSimulatorGUI:
         self.notebook.add(self.sens_frame, text="📈 Sensitivity Analysis")
         
         # Control frame for sensitivity analysis
-        sens_control_frame = ttk.LabelFrame(self.sens_frame, text="Sensitivity Analysis Parameters", padding="10")
+        sens_control_frame = ttk.LabelFrame(self.sens_frame, text="Sensitivity Analysis Parameters", padding=15)
         sens_control_frame.pack(fill="x", padx=10, pady=10)
         
+        sens_control_frame.columnconfigure(0, weight=1)
+        sens_control_frame.columnconfigure(1, weight=2)
+        sens_control_frame.columnconfigure(2, weight=1)
+        sens_control_frame.columnconfigure(3, weight=2)
+        
         # Lambda range
-        ttk.Label(sens_control_frame, text="λ Range (min,max,steps):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.lambda_range_entry = ttk.Entry(sens_control_frame, width=20)
-        self.lambda_range_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+        ttk.Label(sens_control_frame, text="λ Range (min,max,steps):").grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
+        self.lambda_range_entry = ttk.Entry(sens_control_frame, width=25)
+        self.lambda_range_entry.grid(row=0, column=1, sticky="w", padx=10, pady=10)
         self.lambda_range_entry.insert(0, "0.1,2.0,20")
         
         # Metric to analyze
-        ttk.Label(sens_control_frame, text="Metric to Analyze:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(sens_control_frame, text="Metric to Analyze:").grid(
+            row=0, column=2, sticky="w", padx=10, pady=10)
         self.sens_metric = tk.StringVar(value="avg_wait")
         ttk.Combobox(sens_control_frame, textvariable=self.sens_metric,
-                    values=["avg_wait", "avg_turnaround", "utilization", "throughput"],
-                    state="readonly", width=15).grid(row=1, column=1, sticky="w", padx=5, pady=5)
+                    values=["avg_wait", "avg_turnaround", "utilization", "throughput", "queue_length"],
+                    state="readonly", width=20).grid(row=0, column=3, sticky="w", padx=10, pady=10)
         
         # Run button
         ttk.Button(sens_control_frame, text="Run Sensitivity Analysis", 
-                  command=self.run_sensitivity).grid(row=2, column=0, columnspan=2, pady=10)
+                  command=self.run_sensitivity, width=20).grid(row=1, column=0, columnspan=4, pady=10)
         
         # Create figure for sensitivity graph
         self.sens_fig = Figure(figsize=(10, 6), dpi=100)
@@ -900,7 +1235,7 @@ class QueueSimulatorGUI:
         self.sens_canvas.draw()
     
     def run_sensitivity(self):
-        """Run sensitivity analysis."""
+        """Run sensitivity analysis using ANALYTICAL formulas."""
         try:
             # Get parameters
             lam = float(self.lambda_entry.get())
@@ -922,10 +1257,10 @@ class QueueSimulatorGUI:
             arrival_params = self.parse_params(self.arrival_params.get())
             service_params = self.parse_params(self.service_params.get())
             
-            self.status_var.set("Running sensitivity analysis...")
+            self.status_var.set("Running sensitivity analysis using analytical formulas...")
             self.root.update()
             
-            # Run sensitivity analysis
+            # Run sensitivity analysis using ANALYTICAL formulas
             results = self.simulator.run_sensitivity_analysis(
                 self.arrival_dist.get(), arrival_params,
                 self.service_dist.get(), service_params,
@@ -939,6 +1274,10 @@ class QueueSimulatorGUI:
             self.notebook.select(5)  # Sensitivity tab
             
             self.status_var.set(f"Sensitivity analysis completed with {len(results)} points")
+            messagebox.showinfo("Sensitivity Analysis", 
+                              f"Sensitivity analysis completed!\n"
+                              f"Analyzed λ from {lambda_range[0]:.2f} to {lambda_range[-1]:.2f}\n"
+                              f"System capacity: {num_servers * mu:.2f}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Sensitivity analysis failed: {str(e)}")
@@ -954,48 +1293,69 @@ class QueueSimulatorGUI:
         # Get metric to plot
         metric = self.sens_metric.get()
         metric_names = {
-            'avg_wait': 'Average Wait Time',
-            'avg_turnaround': 'Average Turnaround Time',
+            'avg_wait': 'Average Wait Time (Wq)',
+            'avg_turnaround': 'Average Turnaround Time (W)',
             'utilization': 'Server Utilization (%)',
-            'throughput': 'Throughput (customers/time)'
+            'throughput': 'Throughput (customers/time)',
+            'queue_length': 'Average Queue Length (Lq)'
         }
         
-        # Plot the metric vs lambda
-        self.sens_ax.plot(results['lambda'], results[metric], 
-                         'b-', linewidth=2, marker='o', markersize=4)
+        # Filter out infinite values
+        valid_results = results[results[metric] != float('inf')]
         
-        # Fill under the curve
-        self.sens_ax.fill_between(results['lambda'], results[metric], 
-                                 alpha=0.3, color='blue')
-        
-        # Add theoretical stability line (rho = 1)
-        if 'rho' in results.columns:
-            stability_idx = np.argmax(results['rho'] >= 0.95)
-            if stability_idx > 0:
-                stable_lam = results['lambda'].iloc[stability_idx]
-                self.sens_ax.axvline(x=stable_lam, color='red', linestyle='--', 
-                                   linewidth=2, label=f'Stability limit (λ={stable_lam:.2f})')
-        
-        # Add current lambda marker if available
-        if 'lam' in self.current_params:
-            current_lam = self.current_params['lam']
-            current_metric = results[results['lambda'].sub(current_lam).abs().idxmin()][metric]
-            self.sens_ax.plot(current_lam, current_metric, 'ro', markersize=8, 
-                            label=f'Current (λ={current_lam:.2f})')
+        if len(valid_results) == 0:
+            self.sens_ax.text(0.5, 0.5, 'No valid data points\nSystem unstable for all λ values',
+                             ha='center', va='center', transform=self.sens_ax.transAxes,
+                             fontsize=12, color='red')
+        else:
+            # Plot the metric vs lambda
+            self.sens_ax.plot(valid_results['lambda'], valid_results[metric], 
+                             'b-', linewidth=2, marker='o', markersize=4, label='Analytical')
+            
+            # Fill under the curve
+            self.sens_ax.fill_between(valid_results['lambda'], valid_results[metric], 
+                                     alpha=0.3, color='blue')
+            
+            # Add stability line (rho = 1)
+            if 'rho' in valid_results.columns:
+                # Find where system becomes unstable (rho >= 0.95)
+                unstable_mask = valid_results['rho'] >= 0.95
+                if unstable_mask.any():
+                    first_unstable = valid_results[unstable_mask].iloc[0]
+                    self.sens_ax.axvline(x=first_unstable['lambda'], color='red', 
+                                       linestyle='--', linewidth=2, 
+                                       label=f'Stability limit (λ={first_unstable["lambda"]:.2f})')
+            
+            # Add current lambda marker if available
+            if 'lam' in self.current_params:
+                current_lam = self.current_params['lam']
+                # Find closest lambda in results
+                closest_idx = (valid_results['lambda'] - current_lam).abs().idxmin()
+                current_point = valid_results.loc[closest_idx]
+                self.sens_ax.plot(current_lam, current_point[metric], 'ro', 
+                                markersize=8, label=f'Current (λ={current_lam:.2f})')
+                
+                # Add annotation
+                self.sens_ax.annotate(f'Current: λ={current_lam:.2f}\n{metric_names.get(metric, metric)}={current_point[metric]:.2f}',
+                                    xy=(current_lam, current_point[metric]),
+                                    xytext=(10, 10), textcoords='offset points',
+                                    bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.5))
         
         # Set labels and title
         self.sens_ax.set_xlabel('Arrival Rate (λ)', fontweight='bold')
         self.sens_ax.set_ylabel(metric_names.get(metric, metric), fontweight='bold')
         
         title = f"Sensitivity Analysis: {metric_names.get(metric, metric)} vs Arrival Rate"
-        self.sens_ax.set_title(title, fontsize=14, fontweight='bold')
+        subtitle = f"Using Analytical Formulas ({self.arrival_dist.get()}/{self.service_dist.get()}/{self.servers_entry.get()})"
+        self.sens_ax.set_title(f"{title}\n{subtitle}", fontsize=12, fontweight='bold')
         
         # Add grid and legend
         self.sens_ax.grid(True, alpha=0.3, linestyle='--')
-        self.sens_ax.legend()
+        if len(valid_results) > 0:
+            self.sens_ax.legend(loc='best')
         
         # Adjust layout
-        self.sens_fig.tight_layout()
+        self.sens_fig.tight_layout(pad=3.0)
         
         # Update canvas
         self.sens_canvas.draw()
@@ -1023,7 +1383,7 @@ class QueueSimulatorGUI:
                 
                 f.write("SIMULATION PARAMETERS:\n")
                 f.write("-" * 40 + "\n")
-                f.write(f"Simulation Method: {'CP-based' if self.sim_method.get() == 'cp' else 'Fixed customers'}\n")
+                f.write(f"Simulation Method: {'CP-based (until CP=0.99999)' if self.sim_method.get() == 'cp' else 'Fixed customers'}\n")
                 f.write(f"Arrival Type: {self.arrival_type.get()}\n")
                 f.write(f"Arrival Distribution: {self.arrival_dist.get()}\n")
                 f.write(f"Arrival Parameters: {self.arrival_params.get()}\n")
@@ -1044,7 +1404,8 @@ class QueueSimulatorGUI:
                 f.write(f"Total Customers Simulated: {len(self.current_df)}\n")
                 f.write(f"Total Simulation Time: {self.current_df['End'].max():.2f}\n")
                 f.write(f"Server Utilization: {self.simulator.metrics.get('utilization', 0):.2f}%\n")
-                f.write(f"Throughput: {self.simulator.metrics.get('throughput', 0):.4f} customers/time unit\n\n")
+                f.write(f"Throughput: {self.simulator.metrics.get('throughput', 0):.4f} customers/time unit\n")
+                f.write(f"Maximum CP Achieved: {self.current_df['CP'].max():.5f}\n\n")
                 
                 f.write("PERFORMANCE METRICS:\n")
                 f.write("-" * 40 + "\n")
