@@ -1,11 +1,17 @@
 """
-Main entry point for the Enhanced Queue Simulator.
+Main launcher for Sapphire Shopping Outlet Queue Simulator.
 """
 import tkinter as tk
 from simulator_gui import QueueSimulatorGUI
 
-if __name__ == "__main__":
+def main():
+    """Launch the queue simulator application."""
     root = tk.Tk()
+    
+    # Set application icon and title
+    root.title("Sapphire Shopping Outlet - Queue Simulator")
+    
+    # Create and run the application
     app = QueueSimulatorGUI(root)
     
     # Center window on screen
@@ -17,3 +23,6 @@ if __name__ == "__main__":
     root.geometry(f'{width}x{height}+{x}+{y}')
     
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
