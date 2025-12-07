@@ -313,23 +313,7 @@ class QueueSimulatorApp:
 
         self.lbl_svc_params = ttk.Label(input_frame, text="Service Params (a,b and σ):")
         self.entry_svc_params = ttk.Entry(input_frame, width=15)
-        # Placeholder for Service Params
-        self.svc_placeholder = "a, b and σ"
-        self.entry_svc_params.insert(0, self.svc_placeholder)
-        self.entry_svc_params.config(foreground="grey")
-
-        def on_svc_focus_in(event):
-            if self.entry_svc_params.get() == self.svc_placeholder:
-                self.entry_svc_params.delete(0, tk.END)
-                self.entry_svc_params.config(foreground="black")
-
-        def on_svc_focus_out(event):
-            if self.entry_svc_params.get() == "":
-                self.entry_svc_params.insert(0, self.svc_placeholder)
-                self.entry_svc_params.config(foreground="grey")
-
-        self.entry_svc_params.bind("<FocusIn>", on_svc_focus_in)
-        self.entry_svc_params.bind("<FocusOut>", on_svc_focus_out)
+        
                 
 
         ttk.Label(input_frame, text="λ (Arr Rate):").grid(row=0, column=6, padx=5)
@@ -365,27 +349,98 @@ class QueueSimulatorApp:
         self.canvas_sens.get_tk_widget().pack(fill="both", expand=True)
 
     def update_dist_options(self, *args):
-     if self.arrival_type.get() == "M":
-        self.cb_arrival_dist.config(values=["Poisson", "Exponential"])
-        self.arrival_dist.set("Poisson")
-        self.lbl_arr_params.grid_forget()
-        self.entry_arr_params.grid_forget()
-     else:
-        self.cb_arrival_dist.config(values=["Uniform", "Normal", "Gamma"])
-        self.arrival_dist.set("Uniform")
-        self.lbl_arr_params.grid(row=2, column=0, columnspan=2, sticky="e")
-        self.entry_arr_params.grid(row=2, column=2, pady=2)
+        # --- Arrival Type ---
+        if self.arrival_type.get() == "M":
+            self.cb_arrival_dist.config(values=["Poisson", "Exponential"])
+            self.arrival_dist.set("Poisson")
+            self.lbl_arr_params.grid_forget()
+            self.entry_arr_params.grid_forget()
+        else:
+            self.cb_arrival_dist.config(values=["Uniform", "Normal", "Gamma"])
+            self.arrival_dist.set("Uniform")
+            self.lbl_arr_params.grid(row=2, column=0, columnspan=2, sticky="e")
+            self.entry_arr_params.grid(row=2, column=2, pady=2)
 
-     if self.service_type.get() == "M":
-        self.cb_service_dist.config(values=["Exponential", "Poisson"])
-        self.service_dist.set("Exponential")
-        self.lbl_svc_params.grid_forget()
-        self.entry_svc_params.grid_forget()
-     else:
-        self.cb_service_dist.config(values=["Uniform", "Normal", "Gamma"])
-        self.service_dist.set("Uniform")
-        self.lbl_svc_params.grid(row=2, column=3, columnspan=2, sticky="e")
-        self.entry_svc_params.grid(row=2, column=5, pady=2)
+            # Initial placeholder
+            self.update_arrival_placeholder()
+
+        # --- Service Type ---
+        if self.service_type.get() == "M":
+            self.cb_service_dist.config(values=["Exponential", "Poisson"])
+            self.service_dist.set("Exponential")
+            self.lbl_svc_params.grid_forget()
+            self.entry_svc_params.grid_forget()
+        else:
+            self.cb_service_dist.config(values=["Uniform", "Normal", "Gamma"])
+            self.service_dist.set("Uniform")
+            self.lbl_svc_params.grid(row=2, column=3, columnspan=2, sticky="e")
+            self.entry_svc_params.grid(row=2, column=5, pady=2)
+
+            # Initial placeholder
+            self.update_service_placeholder()
+
+        # --- Bind Combobox Selected Events for dynamic placeholder ---
+        self.cb_service_dist.bind("<<ComboboxSelected>>", self.update_service_placeholder)
+        self.cb_arrival_dist.bind("<<ComboboxSelected>>", self.update_arrival_placeholder)
+
+        # --- Bind FocusIn/FocusOut for placeholders ---
+        self.entry_svc_params.bind("<FocusIn>", self.clear_svc_placeholder)
+        self.entry_svc_params.bind("<FocusOut>", self.restore_svc_placeholder)
+        self.entry_arr_params.bind("<FocusIn>", self.clear_arr_placeholder)
+        self.entry_arr_params.bind("<FocusOut>", self.restore_arr_placeholder)
+
+    def update_service_placeholder(self, event=None):
+        dist = self.service_dist.get()
+        if dist == "Uniform":
+            placeholder = "a,b"
+        elif dist == "Normal":
+            placeholder = "μ,σ"
+        elif dist == "Gamma":
+            placeholder = "k,θ"
+        else:
+            placeholder = ""
+        self.entry_svc_params.delete(0, tk.END)
+        self.entry_svc_params.insert(0, placeholder)
+        self.entry_svc_params.config(foreground='gray')
+        self.svc_placeholder = placeholder
+
+    def update_arrival_placeholder(self, event=None):
+        dist = self.arrival_dist.get()
+        if dist == "Uniform":
+            placeholder = "a,b"
+        elif dist == "Normal":
+            placeholder = "μ,σ"
+        elif dist == "Gamma":
+            placeholder = "k,θ"
+        else:
+            placeholder = ""
+        self.entry_arr_params.delete(0, tk.END)
+        self.entry_arr_params.insert(0, placeholder)
+        self.entry_arr_params.config(foreground='gray')
+        self.arr_placeholder = placeholder
+
+    def clear_svc_placeholder(self, event):
+        if self.entry_svc_params.get() == getattr(self, 'svc_placeholder', ''):
+            self.entry_svc_params.delete(0, tk.END)
+            self.entry_svc_params.config(foreground='black')
+
+    def restore_svc_placeholder(self, event):
+        if self.entry_svc_params.get().strip() == "":
+            self.entry_svc_params.insert(0, getattr(self, 'svc_placeholder', ''))
+            self.entry_svc_params.config(foreground='gray')
+
+    def clear_arr_placeholder(self, event):
+        if self.entry_arr_params.get() == getattr(self, 'arr_placeholder', ''):
+            self.entry_arr_params.delete(0, tk.END)
+            self.entry_arr_params.config(foreground='black')
+
+    def restore_arr_placeholder(self, event):
+        if self.entry_arr_params.get().strip() == "":
+            self.entry_arr_params.insert(0, getattr(self, 'arr_placeholder', ''))
+            self.entry_arr_params.config(foreground='gray')
+  
+
+   
 
 
     # ---------------- GUI Tabs ---------------- #
@@ -443,6 +498,53 @@ class QueueSimulatorApp:
             arrival_params = ""
             if self.arrival_type.get() == "G":
                 arrival_params = self.entry_arr_params.get()
+            # --- Arrival Params Validation (if General type) ---
+            arrival_params = ""
+            if self.arrival_type.get() == "G":
+                arrival_params = self.entry_arr_params.get().strip()
+                if arrival_params == "" or arrival_params == getattr(self, 'arr_placeholder', ''):
+                    messagebox.showerror("Input Error", "Please enter Arrival Params.")
+                    return
+                try:
+                    arr_values = [float(x) for x in arrival_params.split(",")]
+                    if any(v < 0 for v in arr_values):
+                        messagebox.showerror("Input Error", "Arrival Params cannot be negative.")
+                        return
+                    if all(v == 0 for v in arr_values):
+                        messagebox.showerror("Input Error", "Arrival Params cannot all be zero.")
+                        return
+                except ValueError:
+                    messagebox.showerror("Input Error", "Arrival Params must be numbers separated by commas.")
+                    return
+                if len(arr_values) < 1:
+                    messagebox.showerror("Input Error", "Missing one or more Arrival parameters.")
+                    return
+
+            # --- Service Params Validation (if General type) ---
+            svc_text = self.entry_svc_params.get().strip()
+            if self.service_type.get() == "G":
+                if svc_text == "" or svc_text == getattr(self, 'svc_placeholder', ''):
+                    messagebox.showerror("Input Error", "Please enter Service Params (a, b or σ).")
+                    return
+                try:
+                    svc_values = [float(x) for x in svc_text.split(",")]
+                    if any(v < 0 for v in svc_values):
+                        messagebox.showerror("Input Error", "Service Params cannot be negative.")
+                        return
+                    if all(v == 0 for v in svc_values):
+                        messagebox.showerror("Input Error", "Service Params cannot all be zero.")
+                        return
+                except ValueError:
+                    messagebox.showerror("Input Error", "Service Params must be numbers separated by commas.")
+                    return
+                if len(svc_values) < 1:
+                    messagebox.showerror("Input Error", "Missing one or more Service parameters.")
+                    return
+       
+
+            
+           
+
     
             df, server_log, max_end_time = simulate_queue_engine(
                 self.arrival_type.get(),
@@ -609,6 +711,7 @@ class QueueSimulatorApp:
             self.notebook.select(self.tab_metrics)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
 
 
 if __name__ == "__main__":
