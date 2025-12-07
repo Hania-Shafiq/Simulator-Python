@@ -478,69 +478,114 @@ class QueueSimulatorApp:
         self.gantt_canvas.pack(side="left", fill="both", expand=True)
 
     def run_sim(self):
+            
         try:
-            lam = float(self.entry_lambda.get())
-            mu = float(self.entry_mu.get())
-            servers = int(self.entry_servers.get())
-    
-            # --- VALIDATION ---
+            lam_text = self.entry_lambda.get().strip()
+            mu_text = self.entry_mu.get().strip()
+            servers_text = self.entry_servers.get().strip()
+
+            # --- Basic Validation ---
+            if lam_text == "":
+                messagebox.showerror("Input Error", "Arrival rate λ cannot be empty.")
+                return
+            if mu_text == "":
+                messagebox.showerror("Input Error", "Service rate μ cannot be empty.")
+                return
+            if servers_text == "":
+                messagebox.showerror("Input Error", "Number of servers cannot be empty.")
+                return
+
+            lam = float(lam_text)
+            mu = float(mu_text)
+            servers = int(servers_text)
+
             if lam <= 0:
-                messagebox.showerror("Input Error", "Arrival rate λ must be a positive number.")
+                messagebox.showerror("Input Error", "Arrival rate λ must be positive.")
                 return
             if mu <= 0:
-                messagebox.showerror("Input Error", "Service rate μ must be a positive number.")
+                messagebox.showerror("Input Error", "Service rate μ must be positive.")
                 return
             if servers <= 0:
                 messagebox.showerror("Input Error", "Number of servers must be at least 1.")
                 return
-    
-            # Get arrival parameters if G type is selected
-            arrival_params = ""
+
+            # --- Arrival Params Validation ---
+            arrival_values = []
             if self.arrival_type.get() == "G":
-                arrival_params = self.entry_arr_params.get()
-            # --- Arrival Params Validation (if General type) ---
-            arrival_params = ""
-            if self.arrival_type.get() == "G":
-                arrival_params = self.entry_arr_params.get().strip()
-                if arrival_params == "" or arrival_params == getattr(self, 'arr_placeholder', ''):
+                arrival_text = self.entry_arr_params.get().strip()
+                if arrival_text == "" or arrival_text == getattr(self, 'arr_placeholder', ''):
                     messagebox.showerror("Input Error", "Please enter Arrival Params.")
                     return
                 try:
-                    arr_values = [float(x) for x in arrival_params.split(",")]
-                    if any(v < 0 for v in arr_values):
-                        messagebox.showerror("Input Error", "Arrival Params cannot be negative.")
-                        return
-                    if all(v == 0 for v in arr_values):
-                        messagebox.showerror("Input Error", "Arrival Params cannot all be zero.")
-                        return
+                    arrival_values = [float(x.strip()) for x in arrival_text.split(",")]
                 except ValueError:
                     messagebox.showerror("Input Error", "Arrival Params must be numbers separated by commas.")
                     return
-                if len(arr_values) < 1:
-                    messagebox.showerror("Input Error", "Missing one or more Arrival parameters.")
+
+                if any(v < 0 for v in arrival_values):
+                    messagebox.showerror("Input Error", "Arrival Params cannot be negative.")
+                    return
+                if all(v == 0 for v in arrival_values):
+                    messagebox.showerror("Input Error", "Arrival Params cannot all be zero.")
                     return
 
-            # --- Service Params Validation (if General type) ---
-            svc_text = self.entry_svc_params.get().strip()
+                dist = self.arrival_dist.get()
+                if dist in ["Uniform", "Normal", "Gamma"] and len(arrival_values) != 2:
+                    messagebox.showerror("Input Error", f"{dist} distribution requires exactly 2 parameters.")
+                    return
+
+            # --- Service Params Validation ---
+            service_values = []
             if self.service_type.get() == "G":
-                if svc_text == "" or svc_text == getattr(self, 'svc_placeholder', ''):
+                service_text = self.entry_svc_params.get().strip()
+                if service_text == "" or service_text == getattr(self, 'svc_placeholder', ''):
                     messagebox.showerror("Input Error", "Please enter Service Params (a, b or σ).")
                     return
                 try:
-                    svc_values = [float(x) for x in svc_text.split(",")]
-                    if any(v < 0 for v in svc_values):
-                        messagebox.showerror("Input Error", "Service Params cannot be negative.")
-                        return
-                    if all(v == 0 for v in svc_values):
-                        messagebox.showerror("Input Error", "Service Params cannot all be zero.")
-                        return
+                    service_values = [float(x.strip()) for x in service_text.split(",")]
                 except ValueError:
                     messagebox.showerror("Input Error", "Service Params must be numbers separated by commas.")
                     return
-                if len(svc_values) < 1:
-                    messagebox.showerror("Input Error", "Missing one or more Service parameters.")
+
+                if any(v < 0 for v in service_values):
+                    messagebox.showerror("Input Error", "Service Params cannot be negative.")
                     return
-       
+                if all(v == 0 for v in service_values):
+                    messagebox.showerror("Input Error", "Service Params cannot all be zero.")
+                    return
+
+                dist = self.service_dist.get()
+                if dist in ["Uniform", "Normal", "Gamma"] and len(service_values) != 2:
+                    messagebox.showerror("Input Error", f"{dist} distribution requires exactly 2 parameters.")
+                    return
+
+            # --- Run simulation ---
+            df, server_log, max_end_time = simulate_queue_engine(
+                self.arrival_type.get(),
+                self.arrival_dist.get(),
+                self.service_type.get(),
+                self.service_dist.get(),
+                lam, mu, servers,
+                service_values if self.service_type.get() == "G" else "",
+                arrival_values if self.arrival_type.get() == "G" else ""
+            )
+
+            # --- Update Data Table ---
+            for i in self.tree.get_children():
+                self.tree.delete(i)
+            for _, r in df.iterrows():
+                self.tree.insert("", "end", values=r.tolist())
+
+            # --- Update Charts ---
+            self.draw_time_charts(df)
+            self.draw_sensitivity_graph()
+            self.draw_gantt(server_log, max_end_time)
+            self.notebook.select(self.tab_data)
+
+        except ValueError as e:
+            messagebox.showerror("Input Error", f"Invalid input: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
             
            
