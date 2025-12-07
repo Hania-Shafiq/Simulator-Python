@@ -311,8 +311,26 @@ class QueueSimulatorApp:
         self.cb_service_dist = ttk.Combobox(input_frame, textvariable=self.service_dist, state="readonly", width=12)
         self.cb_service_dist.grid(row=1, column=4, columnspan=2, pady=2)
 
-        self.lbl_svc_params = ttk.Label(input_frame, text="Service Params (a,b or σ):")
+        self.lbl_svc_params = ttk.Label(input_frame, text="Service Params (a,b and σ):")
         self.entry_svc_params = ttk.Entry(input_frame, width=15)
+        # Placeholder for Service Params
+        self.svc_placeholder = "a, b and σ"
+        self.entry_svc_params.insert(0, self.svc_placeholder)
+        self.entry_svc_params.config(foreground="grey")
+
+        def on_svc_focus_in(event):
+            if self.entry_svc_params.get() == self.svc_placeholder:
+                self.entry_svc_params.delete(0, tk.END)
+                self.entry_svc_params.config(foreground="black")
+
+        def on_svc_focus_out(event):
+            if self.entry_svc_params.get() == "":
+                self.entry_svc_params.insert(0, self.svc_placeholder)
+                self.entry_svc_params.config(foreground="grey")
+
+        self.entry_svc_params.bind("<FocusIn>", on_svc_focus_in)
+        self.entry_svc_params.bind("<FocusOut>", on_svc_focus_out)
+                
 
         ttk.Label(input_frame, text="λ (Arr Rate):").grid(row=0, column=6, padx=5)
         self.entry_lambda = ttk.Entry(input_frame, width=8); self.entry_lambda.insert(0, "8"); self.entry_lambda.grid(row=0, column=7, padx=5)
