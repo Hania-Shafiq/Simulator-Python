@@ -48,16 +48,37 @@ class QueueSimulator:
     
         prev_cp = 0.0
     
-        for i in range(max_events):
-            t = i * step
+        # Determine t values
+        if arrival_dist == "Poisson":
+            t_values = list(range(max_events))  # Poisson is discrete
+        else:
+            t_values = [i * step for i in range(max_events)]  # continuous
+    
+        for t in t_values:
     
             if arrival_dist == "Poisson":
-                k = int(math.floor(t))
-                calculated_cp = sum(
-                    (lam ** j * math.exp(-lam)) / math.factorial(j) for j in range(k + 1)
-                )
+                # For Poisson distribution (discrete time)
+                k = int(t)
+                
+                # Calculate Poisson CDF: P(X ≤ k) where X ~ Poisson(λ)
+                if k < 0:
+                    calculated_cp = 0.0
+                else:
+                    # Use iterative calculation for numerical stability
+                    # P(X = 0) = e^(-λ)
+                    prob = math.exp(-lam)
+                    cumulative = prob
+                    
+                    for j in range(1, k + 1):
+                        # P(X = j) = P(X = j-1) * λ / j
+                        prob = prob * lam / j
+                        cumulative += prob
+                    
+                    calculated_cp = cumulative
+    
             elif arrival_dist == "Exponential":
                 calculated_cp = 1 - math.exp(-lam * t)
+    
             elif arrival_dist == "Uniform":
                 a = arrival_params.get("min", 0)
                 b = arrival_params.get("max", 1)
@@ -67,20 +88,24 @@ class QueueSimulator:
                     calculated_cp = 1.0
                 else:
                     calculated_cp = (t - a) / (b - a)
+    
             elif arrival_dist == "Normal":
                 mean = arrival_params.get("mean", arrival_params.get("mu", 0))
                 stddev = arrival_params.get("stddev", arrival_params.get("std", 1))
                 calculated_cp = norm.cdf(t, loc=mean, scale=stddev)
                 calculated_cp = max(0, min(1, calculated_cp))
+    
             elif arrival_dist == "Gamma":
                 shape = arrival_params.get("shape", 2.0)
                 scale = arrival_params.get("scale", 0.5)
                 calculated_cp = self.gamma_cdf(t, shape, scale)
+    
             else:
-                # Default to Exponential with a warning
+                # Default to Exponential
                 print(f"Warning: Unknown distribution '{arrival_dist}', defaulting to Exponential")
                 calculated_cp = 1 - math.exp(-lam * t)
     
+            # Stop if max_cp reached
             if calculated_cp >= max_cp:
                 arrivals.append(t)
                 cp_list.append(round(calculated_cp, 5))
@@ -93,6 +118,7 @@ class QueueSimulator:
             prev_cp = calculated_cp
     
         return arrivals, cp_list, cp_lookup
+
     def gamma_cdf(self, x: float, shape: float, scale: float) -> float:
         """Approximate Gamma CDF using incomplete gamma function."""
         if x <= 0:
@@ -119,6 +145,8 @@ class QueueSimulator:
                 cdf = 0.5
         
         return max(0, min(1, cdf))
+
+
     
     def simulate_single_server_cp(self, arrival_dist: str, arrival_params: Dict,
                                  service_dist: str, service_params: Dict,
