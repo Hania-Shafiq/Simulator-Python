@@ -34,7 +34,10 @@ class QueueSimulator:
                             ) -> tuple[list, list, list]:
         """
         Generate deterministic CP and CP lookup values using formulas only.
-        CP does NOT depend on inter-arrival times.
+        CP represents the probability of n or fewer arrivals by time t.
+        
+        For Poisson: Direct counting process
+        For others: Approximate number of arrivals based on inter-arrival distribution
         
         step: increment for t (can be any small number, e.g., 0.1)
         Returns: (arrival_times, cp_list, cp_lookup)
@@ -49,43 +52,92 @@ class QueueSimulator:
             # Deterministic t
             t = i * step
     
-            # -----------------------------
-            # CALCULATE CUMULATIVE PROBABILITY
-            # -----------------------------
+            # Calculate Cumulative Probability
+            # CP = P(N(t) <= n) where N(t) is number of arrivals by time t
             if arrival_dist == "Poisson":
+                # Poisson is a counting process: P(N(t) = k) = (λt)^k * e^(-λt) / k!
+                # CP = P(N(t) <= floor(t)) = Σ P(N(t) = j) for j=0 to floor(t)
                 k = int(math.floor(t))
+                lambda_t = lam * t
                 calculated_cp = sum(
-                    (lam ** j * math.exp(-lam)) / math.factorial(j) for j in range(k + 1)
+                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
                 )
     
             elif arrival_dist == "Exponential":
-                calculated_cp = 1 - math.exp(-lam * t)
+                # Exponential inter-arrivals → Poisson counting process
+                # Same as Poisson with rate λ
+                k = int(math.floor(t))
+                lambda_t = lam * t
+                calculated_cp = sum(
+                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                )
     
             elif arrival_dist == "Uniform":
+                # Uniform inter-arrival times: U(a, b)
+                # Mean inter-arrival = (a + b) / 2
+                # Expected arrivals by time t ≈ t / mean_interarrival
                 a = arrival_params.get("min", 0)
                 b = arrival_params.get("max", 1)
-                if t < a:
-                    calculated_cp = 0.0
-                elif t > b:
-                    calculated_cp = 1.0
+                mean_interarrival = (a + b) / 2
+                
+                if mean_interarrival > 0:
+                    k = int(math.floor(t))
+                    
+                    # Use Poisson approximation with adjusted rate
+                    lambda_eff = 1 / mean_interarrival
+                    lambda_t = lambda_eff * t
+                    calculated_cp = sum(
+                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                    )
                 else:
-                    calculated_cp = (t - a) / (b - a)
+                    calculated_cp = 0.0
     
             elif arrival_dist == "Normal":
+                # Normal inter-arrival times: N(μ, σ²)
+                # Mean inter-arrival = μ
+                # Expected arrivals by time t ≈ t / μ
                 mean = arrival_params.get("mean", 1 / lam)
                 stddev = arrival_params.get("stddev", mean * 0.2)
-                z = (t - mean) / stddev
-                calculated_cp = 0.5 * (1 + math.erf(z / math.sqrt(2)))
-                calculated_cp = max(0, min(1, calculated_cp))
+                
+                if mean > 0:
+                    k = int(math.floor(t))
+                    
+                    # Use Poisson approximation with adjusted rate
+                    lambda_eff = 1 / mean
+                    lambda_t = lambda_eff * t
+                    calculated_cp = sum(
+                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                    )
+                else:
+                    calculated_cp = 0.0
     
             elif arrival_dist == "Gamma":
+                # Gamma inter-arrival times: Gamma(α, β)
+                # Mean inter-arrival = α * β
+                # Expected arrivals by time t ≈ t / (α * β)
                 shape = arrival_params.get("shape", 2.0)
                 scale = arrival_params.get("scale", 1 / (lam * shape))
-                calculated_cp = self.gamma_cdf(t, shape, scale)
+                mean_interarrival = shape * scale
+                
+                if mean_interarrival > 0:
+                    k = int(math.floor(t))
+                    
+                    # Use Poisson approximation with adjusted rate
+                    lambda_eff = 1 / mean_interarrival
+                    lambda_t = lambda_eff * t
+                    calculated_cp = sum(
+                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                    )
+                else:
+                    calculated_cp = 0.0
     
             else:
-                # Default fallback exponential
-                calculated_cp = 1 - math.exp(-lam * t)
+                # Default fallback: Poisson process
+                k = int(math.floor(t))
+                lambda_t = lam * t
+                calculated_cp = sum(
+                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                )
     
             # Stop when threshold reached
             if calculated_cp >= max_cp:
@@ -329,21 +381,20 @@ class QueueSimulator:
             total_service_time += service_time
             
             # Calculate CP (for consistency with CP-based simulation)
-            # For fixed number simulation, we don't have real CP, so we'll use index-based
             cp = min(0.99999, (i + 1) / num_customers * 0.99999)
             cp_prev = min(0.99999, i / num_customers * 0.99999)
             
             # Store customer data
             rows.append([
                 i + 1,
-                round(arrival_time, 2),
-                round(service_time, 2),
+                self.minutes_to_mmss(arrival_time),
+                self.minutes_to_mmss(service_time),
                 "S1",
-                round(start_time, 2),
-                round(end_time, 2),
-                round(wait_time, 2),
-                round(turnaround_time, 2),
-                round(response_time, 2),
+                self.minutes_to_mmss(start_time),
+                self.minutes_to_mmss(end_time),
+                self.minutes_to_mmss(wait_time),
+                self.minutes_to_mmss(turnaround_time),
+                self.minutes_to_mmss(response_time),
                 round(cp, 5),
                 round(cp_prev, 5)
             ])
@@ -419,14 +470,14 @@ class QueueSimulator:
             # Store customer data
             rows.append([
                 i + 1,
-                round(arrival_time, 2),
-                round(service_time, 2),
+                self.minutes_to_mmss(arrival_time),
+                self.minutes_to_mmss(service_time),
                 f"S{available_server + 1}",
-                round(start_time, 2),
-                round(end_time, 2),
-                round(wait_time, 2),
-                round(turnaround_time, 2),
-                round(response_time, 2),
+                self.minutes_to_mmss(start_time),
+                self.minutes_to_mmss(end_time),
+                self.minutes_to_mmss(wait_time),
+                self.minutes_to_mmss(turnaround_time),
+                self.minutes_to_mmss(response_time),
                 round(cp, 5),
                 round(cp_prev, 5)
             ])
@@ -562,8 +613,6 @@ class QueueSimulator:
                     l = lq + r
             else:
                 # G/G/c approximation (Allen-Cunneen approximation)
-                # For simplicity, we'll use M/M/c as baseline and adjust
-                # In a real implementation, you'd use Allen-Cunneen formula
                 if num_servers == 1:
                     wq_base = rho / (mu * (1 - rho))
                 else:
