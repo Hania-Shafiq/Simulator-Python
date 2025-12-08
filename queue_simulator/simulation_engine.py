@@ -28,76 +28,80 @@ class QueueSimulator:
         """Initialize servers with their availability times."""
         self.servers = [0.0] * num_servers  # Server availability times
     
-    def generate_arrivals_cp(self, arrival_dist: str, arrival_params: Dict, 
-                            lam: float, max_cp: float = 0.99999, max_events: int = 10000) -> Tuple[List, List, List]:
+    def generate_arrivals_cp(self, arrival_dist: str, arrival_params: Dict,
+                             lam: float, max_cp: float = 0.99999,
+                             max_events: int = 10000, step: float = 0.1
+                            ) -> tuple[list, list, list]:
         """
-        Generate arrivals until cumulative probability reaches max_cp (0.99999).
+        Generate deterministic CP and CP lookup values using formulas only.
+        CP does NOT depend on inter-arrival times.
+        
+        step: increment for t (can be any small number, e.g., 0.1)
         Returns: (arrival_times, cp_list, cp_lookup)
         """
-        # Set seed for reproducibility
-        seed = int(round(lam * 1000000)) & 0x7fffffff
-        local_rng = random.Random(seed)
-        
         arrivals = []
         cp_list = []
         cp_lookup = []
-        
-        t = 0.0
+    
         prev_cp = 0.0
-        
+    
         for i in range(max_events):
-            # Generate interarrival time based on distribution
-            interarrival = generate_random(arrival_dist, arrival_params)
-            t += interarrival
-            
-            # Calculate cumulative probability based on distribution
-            if arrival_dist in ["Exponential", "Poisson"]:
-                # For Poisson process: CP = 1 - exp(-λt)
+            # Deterministic t
+            t = i * step
+    
+            # -----------------------------
+            # CALCULATE CUMULATIVE PROBABILITY
+            # -----------------------------
+            if arrival_dist == "Poisson":
+                k = int(math.floor(t))
+                calculated_cp = sum(
+                    (lam ** j * math.exp(-lam)) / math.factorial(j) for j in range(k + 1)
+                )
+    
+            elif arrival_dist == "Exponential":
                 calculated_cp = 1 - math.exp(-lam * t)
+    
             elif arrival_dist == "Uniform":
-                if 'min' in arrival_params and 'max' in arrival_params:
-                    a, b = arrival_params['min'], arrival_params['max']
-                    # PDF = 1/(b-a), CDF = (t-a)/(b-a) for a ≤ t ≤ b
-                    if t < a:
-                        calculated_cp = 0.0
-                    elif t > b:
-                        calculated_cp = 1.0
-                    else:
-                        calculated_cp = (t - a) / (b - a)
+                a = arrival_params.get("min", 0)
+                b = arrival_params.get("max", 1)
+                if t < a:
+                    calculated_cp = 0.0
+                elif t > b:
+                    calculated_cp = 1.0
                 else:
-                    # Default: approximate as exponential
-                    calculated_cp = 1 - math.exp(-lam * t)
+                    calculated_cp = (t - a) / (b - a)
+    
             elif arrival_dist == "Normal":
-                mean = arrival_params.get('mean', 1/lam)
-                stddev = arrival_params.get('stddev', mean * 0.2)
-                # Use error function for normal CDF
+                mean = arrival_params.get("mean", 1 / lam)
+                stddev = arrival_params.get("stddev", mean * 0.2)
                 z = (t - mean) / stddev
                 calculated_cp = 0.5 * (1 + math.erf(z / math.sqrt(2)))
-                # Ensure between 0 and 1
                 calculated_cp = max(0, min(1, calculated_cp))
+    
             elif arrival_dist == "Gamma":
-                shape = arrival_params.get('shape', 2.0)
-                scale = arrival_params.get('scale', 1/(lam * shape))
-                # Use gamma CDF approximation
+                shape = arrival_params.get("shape", 2.0)
+                scale = arrival_params.get("scale", 1 / (lam * shape))
                 calculated_cp = self.gamma_cdf(t, shape, scale)
+    
             else:
+                # Default fallback exponential
                 calculated_cp = 1 - math.exp(-lam * t)
-            
-            # Stop when we reach the target CP (0.99999)
+    
+            # Stop when threshold reached
             if calculated_cp >= max_cp:
-                # Add one more arrival at the boundary
                 arrivals.append(t)
                 cp_list.append(round(calculated_cp, 5))
                 cp_lookup.append(round(prev_cp, 5))
                 break
-            
+    
             arrivals.append(t)
             cp_list.append(round(calculated_cp, 5))
             cp_lookup.append(round(prev_cp, 5))
             prev_cp = calculated_cp
-        
-        return arrivals, cp_list, cp_lookup
     
+        return arrivals, cp_list, cp_lookup
+
+
     def gamma_cdf(self, x: float, shape: float, scale: float) -> float:
         """Approximate Gamma CDF using incomplete gamma function."""
         if x <= 0:
