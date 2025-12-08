@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 def exponential(rate: float) -> float:
     """Generate exponential random variable with given rate (λ)."""
-    return -math.log(1.0 - random.random()) / rate
+    return -math.log(random.random()) / rate
 
 def uniform(min_val: float, max_val: float) -> float:
     """Generate uniform random variable in [min_val, max_val]."""
