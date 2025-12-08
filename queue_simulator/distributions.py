@@ -61,6 +61,7 @@ def get_scv(mean: float, variance: float) -> float:
     """Calculate squared coefficient of variation."""
     if mean == 0:
         return 0.0
+    
     return variance / (mean * mean)
 
 def get_distribution_params(dist_name: str, params_str: str) -> dict:
