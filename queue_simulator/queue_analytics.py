@@ -414,9 +414,9 @@ class QueueAnalytics:
             # Calculate based on queue type
             if queue_type == "MM1" or (queue_type == "MMC" and c == 1):
                 # M/M/1 formulas
-                wq = rho / (mu * (1 - rho))
+                wq = lq/lam
                 w = wq + 1 / mu
-                lq = lam * wq
+                lq = rho**2 / (1 - rho)
                 l = lam * w
                 
             elif queue_type == "MMC" and c > 1:
@@ -426,25 +426,25 @@ class QueueAnalytics:
                 last_term = (r**c) / (math.factorial(c) * (1 - rho))
                 p0 = 1.0 / (sum_part + last_term)
                 
-                lq = (p0 * (r**c) * rho) / (math.factorial(c) * ((1 - rho)**2))
+                lq = (p0 * (lam/mu)**c) / (math.factorial(c) * ((1 - rho)**2))
                 wq = lq / lam
                 w = wq + 1 / mu
-                l = lq + r
+                l = lam * w
                 
             elif queue_type == "MG1":
                 # M/G/1 approximation (using Cs² = 1 for M/M/1 as baseline)
-                wq_mm1 = rho / (mu * (1 - rho))
-                wq = wq_mm1 * ((1 + cs2) / 2)  # Adjust for service time distribution
+                
+                wq = lq/lam
                 w = wq + 1 / mu
-                lq = lam * wq
+                lq = (lam**2 * (max-min)**2/12) + rho**2 / (2 * (1 - rho))
                 l = lam * w
                 
             elif queue_type == "GG1":
                 # G/G/1 approximation
-                wq_mm1 = rho / (mu * (1 - rho))
+                wq_mm1 = lq/lam
                 wq = wq_mm1 * ((ca2 + cs2) / 2)
                 w = wq + 1 / mu
-                lq = lam * wq
+                lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
                 l = lam * w
                 
             elif queue_type == "GGC" and c > 1:
@@ -458,9 +458,10 @@ class QueueAnalytics:
                 wq_mmc = lq_mmc / lam
                 
                 # Apply Allen-Cunneen adjustment
+                wq_mm1 = lq/lam
                 wq = wq_mmc * ((ca2 + cs2) / 2)
                 w = wq + 1 / mu
-                lq = lam * wq
+                lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
                 l = lam * w
                 
             else:
