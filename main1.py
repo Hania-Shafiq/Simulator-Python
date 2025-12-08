@@ -598,7 +598,7 @@ class QueueSimulatorApp:
                 self.service_dist.get(),
                 lam, mu, servers,
                 self.entry_svc_params.get() if self.service_type.get() == "G" else "",
-                arrival_params
+                
             )
     
             # Clear old data and insert new

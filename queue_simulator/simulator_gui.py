@@ -318,7 +318,10 @@ class QueueSimulatorGUI:
         # Bind events
         self.arrival_type.trace('w', self.update_distribution_options)
         self.service_type.trace('w', self.update_distribution_options)
+        self.arrival_dist.trace('w', self.update_distribution_options)  # ADD THIS LINE
+        self.service_dist.trace('w', self.update_distribution_options)  # ADD THIS LINE
         self.update_distribution_options()
+                
     
     def show_help(self):
         """Show help dialog."""
@@ -554,28 +557,72 @@ class QueueSimulatorGUI:
             self.fixed_frame.pack_forget()
     
     def update_distribution_options(self, *args):
-        """Update distribution options based on selected type."""
+        """Update distribution options and parameters based on selections."""
+        
+        # Track which variable triggered the update
+        # (This is a simplified approach - for a more robust solution, 
+        # you might want separate functions for type vs distribution changes)
+        
+        # ----------------- Update Available Distributions -----------------
+        # Only update combobox values when type changes, NOT when distribution changes
+        
+        # For Arrival
         if self.arrival_type.get() == "M":
-            self.arrival_dist_combo.config(values=["Exponential", "Poisson"])
-            self.arrival_dist.set("Exponential")
-            self.arrival_params.delete(0, tk.END)
-            self.arrival_params.insert(0, "rate=0.5")
+            # Only update combobox if values are different
+            current_values = list(self.arrival_dist_combo['values'])
+            if current_values != ["Exponential", "Poisson"]:
+                self.arrival_dist_combo.config(values=["Exponential", "Poisson"])
+                # Only set default if current value is not in new list
+                if self.arrival_dist.get() not in ["Exponential", "Poisson"]:
+                    self.arrival_dist.set("Exponential")
         else:
-            self.arrival_dist_combo.config(values=["Uniform", "Normal", "Gamma"])
-            self.arrival_dist.set("Uniform")
-            self.arrival_params.delete(0, tk.END)
-            self.arrival_params.insert(0, "min=1.0,max=3.0")
-            
+            current_values = list(self.arrival_dist_combo['values'])
+            if current_values != ["Uniform", "Normal", "Gamma"]:
+                self.arrival_dist_combo.config(values=["Uniform", "Normal", "Gamma"])
+                # Only set default if current value is not in new list
+                if self.arrival_dist.get() not in ["Uniform", "Normal", "Gamma"]:
+                    self.arrival_dist.set("Uniform")
+        
+        # For Service
         if self.service_type.get() == "M":
-            self.service_dist_combo.config(values=["Exponential", "Poisson"])
-            self.service_dist.set("Exponential")
-            self.service_params.delete(0, tk.END)
-            self.service_params.insert(0, "rate=1.0")
+            current_values = list(self.service_dist_combo['values'])
+            if current_values != ["Exponential", "Poisson"]:
+                self.service_dist_combo.config(values=["Exponential", "Poisson"])
+                if self.service_dist.get() not in ["Exponential", "Poisson"]:
+                    self.service_dist.set("Exponential")
         else:
-            self.service_dist_combo.config(values=["Uniform", "Normal", "Gamma"])
-            self.service_dist.set("Uniform")
-            self.service_params.delete(0, tk.END)
-            self.service_params.insert(0, "min=0.5,max=1.5")
+            current_values = list(self.service_dist_combo['values'])
+            if current_values != ["Uniform", "Normal", "Gamma"]:
+                self.service_dist_combo.config(values=["Uniform", "Normal", "Gamma"])
+                if self.service_dist.get() not in ["Uniform", "Normal", "Gamma"]:
+                    self.service_dist.set("Uniform")
+        
+        # ----------------- Update Parameters -----------------
+        # ALWAYS update parameters based on current selection
+        arrival_selected = self.arrival_dist.get()
+        service_selected = self.service_dist.get()
+        
+        # Update arrival parameters
+        self.arrival_params.delete(0, tk.END)
+        if arrival_selected in ["Exponential", "Poisson"]:
+            self.arrival_params.insert(0, "rate=0.5")
+        elif arrival_selected == "Uniform":
+            self.arrival_params.insert(0, "min=1.0,max=3.0")
+        elif arrival_selected == "Normal":
+            self.arrival_params.insert(0, "mean=2.0,std=0.5")
+        elif arrival_selected == "Gamma":
+            self.arrival_params.insert(0, "shape=2.0,scale=0.5")
+        
+        # Update service parameters
+        self.service_params.delete(0, tk.END)
+        if service_selected in ["Exponential", "Poisson"]:
+            self.service_params.insert(0, "rate=1.0")
+        elif service_selected == "Uniform":
+            self.service_params.insert(0, "min=1.0,max=3.0")
+        elif service_selected == "Normal":
+            self.service_params.insert(0, "mean=2.0,std=0.5")
+        elif service_selected == "Gamma":
+            self.service_params.insert(0, "shape=2.0,scale=0.5")
     
     def parse_params(self, params_str: str) -> dict:
         """Parse parameters string to dictionary."""
