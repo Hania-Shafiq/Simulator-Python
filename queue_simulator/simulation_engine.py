@@ -186,7 +186,7 @@ class QueueSimulator:
             rows.append([
                 i + 1,
                 round(arrival_time, 2),
-                round(service_time, 2),
+                round(service_time, 0), ###
                 "S1",
                 round(start_time, 2),
                 round(end_time, 2),
