@@ -36,8 +36,8 @@ class QueueAnalytics:
         p0 = 1 - rho  # Probability system empty
         l = rho / (1 - rho)  # Avg number in system
         lq = rho**2 / (1 - rho)  # Avg number in queue
-        w = 1 / (mu - lambda_)  # Avg time in system
         wq = rho / (mu * (1 - rho))  # Avg wait in queue
+        w = wq + 1 / mu  # Avg time in system
         
         # Probability of n customers in system: Pn = (1 - ρ) * ρ^n
         def p_n(n: int) -> float:
