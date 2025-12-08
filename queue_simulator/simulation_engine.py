@@ -7,7 +7,15 @@ import math
 import numpy as np
 from typing import List, Tuple, Dict, Any
 from distributions import generate_random, get_distribution_params
+from scipy.stats import norm 
 
+def parse_arrival_params(param_str):
+    """Convert GUI string like 'min=1.0,max=3.0' to dictionary."""
+    params = {}
+    for item in param_str.split(","):
+        key, value = item.split("=")
+        params[key.strip()] = float(value.strip())
+    return params
 class QueueSimulator:
     """Main simulation engine for queueing systems."""
     
@@ -28,17 +36,12 @@ class QueueSimulator:
         """Initialize servers with their availability times."""
         self.servers = [0.0] * num_servers  # Server availability times
     
-    def generate_arrivals_cp(self, arrival_dist: str, arrival_params: Dict,
+
+
+    
+    def generate_arrivals_cp(self, arrival_dist: str, arrival_params: dict,
                              lam: float, max_cp: float = 0.99999,
-                             max_events: int = 10000, step: float = 0.1
-                            ) -> tuple[list, list, list]:
-        """
-        Generate deterministic CP and CP lookup values using formulas only.
-        CP does NOT depend on inter-arrival times.
-        
-        step: increment for t (can be any small number, e.g., 0.1)
-        Returns: (arrival_times, cp_list, cp_lookup)
-        """
+                             max_events: int = 10000, step: float = 0.1):
         arrivals = []
         cp_list = []
         cp_lookup = []
@@ -46,21 +49,15 @@ class QueueSimulator:
         prev_cp = 0.0
     
         for i in range(max_events):
-            # Deterministic t
             t = i * step
     
-            # -----------------------------
-            # CALCULATE CUMULATIVE PROBABILITY
-            # -----------------------------
             if arrival_dist == "Poisson":
                 k = int(math.floor(t))
                 calculated_cp = sum(
                     (lam ** j * math.exp(-lam)) / math.factorial(j) for j in range(k + 1)
                 )
-    
             elif arrival_dist == "Exponential":
                 calculated_cp = 1 - math.exp(-lam * t)
-    
             elif arrival_dist == "Uniform":
                 a = arrival_params.get("min", 0)
                 b = arrival_params.get("max", 1)
@@ -70,24 +67,20 @@ class QueueSimulator:
                     calculated_cp = 1.0
                 else:
                     calculated_cp = (t - a) / (b - a)
-    
             elif arrival_dist == "Normal":
-                mean = arrival_params.get("mean", 1 / lam)
-                stddev = arrival_params.get("stddev", mean * 0.2)
-                z = (t - mean) / stddev
-                calculated_cp = 0.5 * (1 + math.erf(z / math.sqrt(2)))
+                mean = arrival_params.get("mean", arrival_params.get("mu", 0))
+                stddev = arrival_params.get("stddev", arrival_params.get("std", 1))
+                calculated_cp = norm.cdf(t, loc=mean, scale=stddev)
                 calculated_cp = max(0, min(1, calculated_cp))
-    
             elif arrival_dist == "Gamma":
                 shape = arrival_params.get("shape", 2.0)
-                scale = arrival_params.get("scale", 1 / (lam * shape))
+                scale = arrival_params.get("scale", 0.5)
                 calculated_cp = self.gamma_cdf(t, shape, scale)
-    
             else:
-                # Default fallback exponential
+                # Default to Exponential with a warning
+                print(f"Warning: Unknown distribution '{arrival_dist}', defaulting to Exponential")
                 calculated_cp = 1 - math.exp(-lam * t)
     
-            # Stop when threshold reached
             if calculated_cp >= max_cp:
                 arrivals.append(t)
                 cp_list.append(round(calculated_cp, 5))
@@ -100,8 +93,6 @@ class QueueSimulator:
             prev_cp = calculated_cp
     
         return arrivals, cp_list, cp_lookup
-
-
     def gamma_cdf(self, x: float, shape: float, scale: float) -> float:
         """Approximate Gamma CDF using incomplete gamma function."""
         if x <= 0:
