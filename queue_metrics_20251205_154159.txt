@@ -1,0 +1,10 @@
+======================================================================
+SAPPHIRE SHOPPING OUTLET - QUEUE SIMULATION RESULTS
+======================================================================
+
+SIMULATION PARAMETERS:
+----------------------------------------
+Simulation Method: CP-based (until CP=0.99999)
+Arrival Type: G
+Arrival Distribution: Uniform
+Arrival Parameters: min=1.0,max=3.0

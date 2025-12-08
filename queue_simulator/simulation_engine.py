@@ -34,10 +34,7 @@ class QueueSimulator:
                             ) -> tuple[list, list, list]:
         """
         Generate deterministic CP and CP lookup values using formulas only.
-        CP represents the probability of n or fewer arrivals by time t.
-        
-        For Poisson: Direct counting process
-        For others: Approximate number of arrivals based on inter-arrival distribution
+        CP does NOT depend on inter-arrival times.
         
         step: increment for t (can be any small number, e.g., 0.1)
         Returns: (arrival_times, cp_list, cp_lookup)
@@ -52,92 +49,43 @@ class QueueSimulator:
             # Deterministic t
             t = i * step
     
-            # Calculate Cumulative Probability
-            # CP = P(N(t) <= n) where N(t) is number of arrivals by time t
+            # -----------------------------
+            # CALCULATE CUMULATIVE PROBABILITY
+            # -----------------------------
             if arrival_dist == "Poisson":
-                # Poisson is a counting process: P(N(t) = k) = (λt)^k * e^(-λt) / k!
-                # CP = P(N(t) <= floor(t)) = Σ P(N(t) = j) for j=0 to floor(t)
                 k = int(math.floor(t))
-                lambda_t = lam * t
                 calculated_cp = sum(
-                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
+                    (lam ** j * math.exp(-lam)) / math.factorial(j) for j in range(k + 1)
                 )
     
             elif arrival_dist == "Exponential":
-                # Exponential inter-arrivals → Poisson counting process
-                # Same as Poisson with rate λ
-                k = int(math.floor(t))
-                lambda_t = lam * t
-                calculated_cp = sum(
-                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
-                )
+                calculated_cp = 1 - math.exp(-lam * t)
     
             elif arrival_dist == "Uniform":
-                # Uniform inter-arrival times: U(a, b)
-                # Mean inter-arrival = (a + b) / 2
-                # Expected arrivals by time t ≈ t / mean_interarrival
                 a = arrival_params.get("min", 0)
                 b = arrival_params.get("max", 1)
-                mean_interarrival = (a + b) / 2
-                
-                if mean_interarrival > 0:
-                    k = int(math.floor(t))
-                    
-                    # Use Poisson approximation with adjusted rate
-                    lambda_eff = 1 / mean_interarrival
-                    lambda_t = lambda_eff * t
-                    calculated_cp = sum(
-                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
-                    )
-                else:
+                if t < a:
                     calculated_cp = 0.0
+                elif t > b:
+                    calculated_cp = 1.0
+                else:
+                    calculated_cp = (t - a) / (b - a)
     
             elif arrival_dist == "Normal":
-                # Normal inter-arrival times: N(μ, σ²)
-                # Mean inter-arrival = μ
-                # Expected arrivals by time t ≈ t / μ
                 mean = arrival_params.get("mean", 1 / lam)
                 stddev = arrival_params.get("stddev", mean * 0.2)
-                
-                if mean > 0:
-                    k = int(math.floor(t))
-                    
-                    # Use Poisson approximation with adjusted rate
-                    lambda_eff = 1 / mean
-                    lambda_t = lambda_eff * t
-                    calculated_cp = sum(
-                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
-                    )
-                else:
-                    calculated_cp = 0.0
+                z = (t - mean) / stddev
+                calculated_cp = 0.5 * (1 + math.erf(z / math.sqrt(2)))
+                calculated_cp = max(0, min(1, calculated_cp))
     
             elif arrival_dist == "Gamma":
-                # Gamma inter-arrival times: Gamma(α, β)
-                # Mean inter-arrival = α * β
-                # Expected arrivals by time t ≈ t / (α * β)
                 shape = arrival_params.get("shape", 2.0)
                 scale = arrival_params.get("scale", 1 / (lam * shape))
-                mean_interarrival = shape * scale
-                
-                if mean_interarrival > 0:
-                    k = int(math.floor(t))
-                    
-                    # Use Poisson approximation with adjusted rate
-                    lambda_eff = 1 / mean_interarrival
-                    lambda_t = lambda_eff * t
-                    calculated_cp = sum(
-                        (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
-                    )
-                else:
-                    calculated_cp = 0.0
+                calculated_cp = self.gamma_cdf(t, shape, scale)
     
             else:
-                # Default fallback: Poisson process
-                k = int(math.floor(t))
-                lambda_t = lam * t
-                calculated_cp = sum(
-                    (lambda_t ** j * math.exp(-lambda_t)) / math.factorial(j) for j in range(k + 1)
-                )
+                # Default fallback exponential
+                calculated_cp = 1 - math.exp(-lam * t)
     
             # Stop when threshold reached
             if calculated_cp >= max_cp:
