@@ -11,7 +11,6 @@ import numpy as np
 from datetime import datetime
 import seaborn as sns
 from tkinter import font as tkfont
-
 from simulation_engine import QueueSimulator
 from queue_analytics import QueueAnalytics
 from distributions import get_distribution_params

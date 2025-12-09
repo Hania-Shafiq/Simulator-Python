@@ -444,7 +444,8 @@ class QueueAnalytics:
                 wq_mm1 = lq/lam
                 wq = wq_mm1 * ((ca2 + cs2) / 2)
                 w = wq + 1 / mu
-                lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
+                # lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
+                lq = (rho**2 * (1 + cs2) * (ca2 + rho**2 * cs2)) / (2 * (1 - rho) * (1 + rho**2 * cs2))
                 l = lam * w
                 
             elif queue_type == "GGC" and c > 1:
@@ -461,7 +462,8 @@ class QueueAnalytics:
                 wq_mm1 = lq/lam
                 wq = wq_mmc * ((ca2 + cs2) / 2)
                 w = wq + 1 / mu
-                lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
+                # lq = (rho**2(1+cs2)*(ca2+rho**2*cs2))/ (2*(1-rho)(1+rho**2*cs2))
+                lq = (rho**2 * (1 + cs2) * (ca2 + rho**2 * cs2)) / (2 * (1 - rho) * (1 + rho**2 * cs2))
                 l = lam * w
                 
             else:
