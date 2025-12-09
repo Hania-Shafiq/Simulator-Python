@@ -899,84 +899,229 @@ class QueueSimulatorGUI:
         )
         self.analytics_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Initial message
-        self.analytics_text.insert(tk.END, "Click 'Analytical Results' to calculate queueing theory formulas...\n")
-        self.analytics_text.config(state=tk.DISABLED)
-    
+        # Initial message - UPDATED
+        self.analytics_text.insert(tk.END, "ANALYTICAL RESULTS TAB\n")
+        self.analytics_text.insert(tk.END, "=" * 50 + "\n\n")
+        self.analytics_text.insert(tk.END, "Click the '📊 Analytical Results' button in the Setup tab\n")
+        self.analytics_text.insert(tk.END, "to calculate queueing theory formulas based on your parameters.\n\n")
+        self.analytics_text.insert(tk.END, "Or run a simulation first for comparison with analytical results.\n")
+        self.analytics_text.config(state=tk.DISABLED) 
+        
     def update_analytics_tab(self):
-        """Update analytical results tab."""
+        """Update analytical results tab with proper distribution handling."""
         try:
+            import traceback
+            
+            # Clear the text widget first
+            self.analytics_text.config(state=tk.NORMAL)
+            self.analytics_text.delete(1.0, tk.END)
+            
+            # Show calculating message
+            self.analytics_text.insert(tk.END, "Calculating analytical results...\n")
+            self.analytics_text.see(tk.END)
+            self.root.update()  # Force update
+            
+            # Get parameters
             lam = float(self.lambda_entry.get())
             mu = float(self.mu_entry.get())
             c = int(self.servers_entry.get())
             
-            # Calculate analytical results
-            if c == 1:
-                results = QueueAnalytics.mm1(lam, mu)
-                queue_type = "M/M/1"
-            else:
-                results = QueueAnalytics.mmc(lam, mu, c)
-                queue_type = f"M/M/{c}"
+            # Get distribution information
+            arrival_dist = self.arrival_dist.get()
+            service_dist = self.service_dist.get()
             
-            # Display results
-            self.analytics_text.config(state=tk.NORMAL)
+            # Parse parameters
+            arrival_params = self.parse_params(self.arrival_params.get())
+            service_params = self.parse_params(self.service_params.get())
+            
+            # Calculate analytical results
+            results = QueueAnalytics.calculate_for_distributions(
+                lam, mu, c,
+                arrival_dist, service_dist,
+                arrival_params, service_params
+            )
+            
+            # Clear and display results
             self.analytics_text.delete(1.0, tk.END)
             
+            # Header
             self.analytics_text.insert(tk.END, "=" * 70 + "\n")
-            self.analytics_text.insert(tk.END, f"ANALYTICAL RESULTS - {queue_type}\n")
-            self.analytics_text.insert(tk.END, "=" * 70 + "\n\n")
-            self.analytics_text.insert(tk.END, f"Parameters: λ = {lam}, μ = {mu}, c = {c}\n\n")
-            
-            if "error" in results:
-                self.analytics_text.insert(tk.END, f"❌ {results['error']}\n")
+            if "Queue Type" in results:
+                self.analytics_text.insert(tk.END, f"ANALYTICAL RESULTS - {results['Queue Type']}\n")
             else:
-                for key, value in results.items():
-                    if callable(value):
-                        continue
-                    if isinstance(value, float):
-                        self.analytics_text.insert(tk.END, f"{key:35}: {value:.6f}\n")
-                    else:
-                        self.analytics_text.insert(tk.END, f"{key:35}: {value}\n")
+                queue_type = f"M/M/{c}" if c > 1 else "M/M/1"
+                self.analytics_text.insert(tk.END, f"ANALYTICAL RESULTS - {queue_type}\n")
+            self.analytics_text.insert(tk.END, "=" * 70 + "\n\n")
             
-            # Add comparison with simulation if available
-            if not self.current_df.empty:
-                self.analytics_text.insert(tk.END, "\n" + "=" * 70 + "\n")
-                self.analytics_text.insert(tk.END, "SIMULATION vs ANALYTICAL COMPARISON\n")
-                self.analytics_text.insert(tk.END, "=" * 70 + "\n\n")
+            # Configuration info
+            self.analytics_text.insert(tk.END, "CONFIGURATION\n")
+            self.analytics_text.insert(tk.END, "-" * 40 + "\n")
+            
+            # Show actual queue type
+            arrival_markovian = arrival_dist in ["Exponential", "Poisson"]
+            service_markovian = service_dist in ["Exponential", "Poisson"]
+            
+            if arrival_markovian and service_markovian:
+                queue_type_desc = f"M/M/{c}" if c > 1 else "M/M/1"
+                self.analytics_text.insert(tk.END, f"Queue Type: {queue_type_desc} (Markovian/Markovian)\n")
+            elif arrival_markovian and not service_markovian:
+                queue_type_desc = f"M/G/{c}" if c > 1 else "M/G/1"
+                self.analytics_text.insert(tk.END, f"Queue Type: {queue_type_desc} (Markovian/General)\n")
+            elif not arrival_markovian and service_markovian:
+                queue_type_desc = f"G/M/{c}" if c > 1 else "G/M/1"
+                self.analytics_text.insert(tk.END, f"Queue Type: {queue_type_desc} (General/Markovian)\n")
+            else:
+                queue_type_desc = f"G/G/{c}" if c > 1 else "G/G/1"
+                self.analytics_text.insert(tk.END, f"Queue Type: {queue_type_desc} (General/General)\n")
+            
+            self.analytics_text.insert(tk.END, f"Arrival: {arrival_dist}\n")
+            if arrival_params:
+                self.analytics_text.insert(tk.END, f"Arrival Parameters: {arrival_params}\n")
+            self.analytics_text.insert(tk.END, f"Service: {service_dist}\n")
+            if service_params:
+                self.analytics_text.insert(tk.END, f"Service Parameters: {service_params}\n")
+            self.analytics_text.insert(tk.END, f"λ = {lam}, μ = {mu}, c = {c}\n")
+            
+            rho = lam / (c * mu)
+            self.analytics_text.insert(tk.END, f"Utilization (ρ) = {rho:.4f}\n\n")
+            
+            # Error check
+            if "error" in results:
+                self.analytics_text.insert(tk.END, f"❌ ERROR: {results['error']}\n")
+                self.analytics_text.config(state=tk.DISABLED)
+                return
+            
+            # Performance metrics
+            self.analytics_text.insert(tk.END, "PERFORMANCE METRICS\n")
+            self.analytics_text.insert(tk.END, "-" * 40 + "\n")
+            
+            # Display key metrics
+            key_metrics = [
+                ("ρ (Utilization)", ["ρ (Utilization)", "ρ (Utilization per server)"]),
+                ("L (Avg in system)", ["L (Avg in system)", "L (Avg in system - approx)"]),
+                ("Lq (Avg in queue)", ["Lq (Avg in queue)", "Lq (Avg in queue - approx)"]),
+                ("W (Avg time in system)", ["W (Avg time in system)", "W (Avg time in system - approx)"]),
+                ("Wq (Avg wait in queue)", ["Wq (Avg wait in queue)", "Wq (Avg wait in queue - approx)"])
+            ]
+            
+            for display_name, possible_keys in key_metrics:
+                value = None
+                for key in possible_keys:
+                    if key in results:
+                        value = results[key]
+                        break
                 
-                sim_metrics = {
-                    "Avg Wait (Wq)": self.current_df["Wait"].mean(),
-                    "Avg Turnaround (W)": self.current_df["Turnaround"].mean(),
-                    "System Customers (L)": self.current_df["Wait"].mean() * float(self.lambda_entry.get())
-                }
+                if value is not None:
+                    if isinstance(value, float):
+                        self.analytics_text.insert(tk.END, f"{display_name:35}: {value:.6f}\n")
+                    else:
+                        self.analytics_text.insert(tk.END, f"{display_name:35}: {value}\n")
+            
+            # SCV information
+            if "SCV Arrival (Ca²)" in results and "SCV Service (Cs²)" in results:
+                self.analytics_text.insert(tk.END, "\nDISTRIBUTION CHARACTERISTICS\n")
+                self.analytics_text.insert(tk.END, "-" * 40 + "\n")
+                self.analytics_text.insert(tk.END, f"Arrival SCV (Ca²): {results['SCV Arrival (Ca²)']:.4f}\n")
+                self.analytics_text.insert(tk.END, f"Service SCV (Cs²): {results['SCV Service (Cs²)']:.4f}\n")
                 
-                theo_metrics = {
-                    "Avg Wait (Wq)": results.get("Wq (Avg wait in queue)", 0),
-                    "Avg Turnaround (W)": results.get("W (Avg time in system)", 0),
-                    "System Customers (L)": results.get("L (Avg in system)", 0)
-                }
-                
-                for metric in ["Avg Wait (Wq)", "Avg Turnaround (W)"]:
-                    if metric in sim_metrics and metric in theo_metrics:
-                        sim_val = sim_metrics[metric]
-                        theo_val = theo_metrics[metric]
-                        diff = abs(theo_val - sim_val)
-                        diff_pct = (diff / theo_val * 100) if theo_val != 0 else 0
-                        
-                        self.analytics_text.insert(tk.END, f"{metric}:\n")
-                        self.analytics_text.insert(tk.END, f"  Theoretical: {theo_val:.6f}\n")
-                        self.analytics_text.insert(tk.END, f"  Simulation:  {sim_val:.6f}\n")
-                        self.analytics_text.insert(tk.END, f"  Difference:  {diff:.6f} ({diff_pct:.2f}%)\n\n")
+                # Show what SCV=1 means
+                if results['SCV Arrival (Ca²)'] == 1.0:
+                    self.analytics_text.insert(tk.END, "  → Markovian arrival distribution\n")
+                if results['SCV Service (Cs²)'] == 1.0:
+                    self.analytics_text.insert(tk.END, "  → Markovian service distribution\n")
+            
+            # Calculation method
+            if "Calculation Method" in results:
+                self.analytics_text.insert(tk.END, f"\nCalculation: {results['Calculation Method']}\n")
+            
+            # Comparison with simulation
+            if not self.current_df.empty and len(self.current_df) > 10:
+                self.add_simulation_comparison(results, lam)
             
             self.analytics_text.config(state=tk.DISABLED)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Analytical calculation failed: {str(e)}")
+            self.analytics_text.insert(tk.END, f"\n❌ ERROR in analytical calculation:\n{str(e)}\n")
+            self.analytics_text.config(state=tk.DISABLED)
+            
+    def add_simulation_comparison(self, analytical_results: dict, lam: float):
+        """Add simulation vs analytical comparison."""
+        self.analytics_text.insert(tk.END, "\n" + "=" * 70 + "\n")
+        self.analytics_text.insert(tk.END, "SIMULATION vs ANALYTICAL COMPARISON\n")
+        self.analytics_text.insert(tk.END, "=" * 70 + "\n\n")
+        
+        # Get simulation metrics
+        sim_wait = self.current_df["Wait"].mean()
+        sim_turnaround = self.current_df["Turnaround"].mean()
+        sim_response = self.current_df["Response"].mean()
+        
+        # Get theoretical metrics
+        theo_wait = None
+        theo_turnaround = None
+        
+        # Try different possible keys for wait time
+        wait_keys = ["Wq (Avg wait in queue)", "Wq (Avg wait in queue - approx)", 
+                    "Avg Wait (Wq)", "Wq"]
+        for key in wait_keys:
+            if key in analytical_results:
+                theo_wait = analytical_results[key]
+                break
+        
+        # Try different possible keys for turnaround
+        turnaround_keys = ["W (Avg time in system)", "W (Avg time in system - approx)",
+                          "Avg Turnaround (W)", "W"]
+        for key in turnaround_keys:
+            if key in analytical_results:
+                theo_turnaround = analytical_results[key]
+                break
+        
+        # Display comparison for wait time
+        if theo_wait is not None:
+            diff_wait = abs(theo_wait - sim_wait)
+            diff_wait_pct = (diff_wait / theo_wait * 100) if theo_wait != 0 else 0
+            
+            self.analytics_text.insert(tk.END, "Average Wait Time (Wq):\n")
+            self.analytics_text.insert(tk.END, f"  Analytical: {theo_wait:.6f}\n")
+            self.analytics_text.insert(tk.END, f"  Simulation: {sim_wait:.6f}\n")
+            self.analytics_text.insert(tk.END, f"  Difference: {diff_wait:.6f} ({diff_wait_pct:.2f}%)\n\n")
+        
+        # Display comparison for turnaround time
+        if theo_turnaround is not None:
+            diff_turnaround = abs(theo_turnaround - sim_turnaround)
+            diff_turnaround_pct = (diff_turnaround / theo_turnaround * 100) if theo_turnaround != 0 else 0
+            
+            self.analytics_text.insert(tk.END, "Average Turnaround Time (W):\n")
+            self.analytics_text.insert(tk.END, f"  Analytical: {theo_turnaround:.6f}\n")
+            self.analytics_text.insert(tk.END, f"  Simulation: {sim_turnaround:.6f}\n")
+            self.analytics_text.insert(tk.END, f"  Difference: {diff_turnaround:.6f} ({diff_turnaround_pct:.2f}%)\n")
     
     def show_analytics(self):
-        """Calculate and show analytical results."""
-        self.update_analytics_tab()
-        self.notebook.select(2)  # Analytics tab
+        """Calculate and show analytical results - FIXED VERSION."""
+        try:
+            # Clear and prepare analytics text FIRST
+            self.analytics_text.config(state=tk.NORMAL)
+            self.analytics_text.delete(1.0, tk.END)
+            self.analytics_text.insert(tk.END, "Calculating analytical results...\n")
+            self.analytics_text.see(tk.END)
+            self.root.update()  # Force update
+            
+            # Update the analytics tab with calculations
+            self.update_analytics_tab()
+            
+            # Force switch to analytics tab (index 2)
+            self.notebook.select(2)
+            
+            # Force GUI update to show the tab
+            self.root.update_idletasks()
+            
+        except Exception as e:
+            messagebox.showerror("Analytical Error", 
+                               f"Failed to show analytical results: {str(e)}")
+            # Still try to switch to analytics tab
+            try:
+                self.notebook.select(2)
+            except:
+                pass
     
     def create_charts_tab(self):
         """Create performance charts tab."""
@@ -1282,7 +1427,7 @@ class QueueSimulatorGUI:
         self.sens_canvas.draw()
     
     def run_sensitivity(self):
-        """Run sensitivity analysis using ANALYTICAL formulas."""
+        """Run sensitivity analysis using proper analytical formulas."""
         try:
             # Get parameters
             lam = float(self.lambda_entry.get())
@@ -1300,36 +1445,58 @@ class QueueSimulatorGUI:
                 max_lam = min(lam * 2, mu * num_servers * 0.95)  # Keep below capacity
                 lambda_range = np.linspace(min_lam, max_lam, 20)
             
-            # Parse distribution parameters
+            # Get distribution information
+            arrival_dist = self.arrival_dist.get()
+            service_dist = self.service_dist.get()
             arrival_params = self.parse_params(self.arrival_params.get())
             service_params = self.parse_params(self.service_params.get())
             
-            self.status_var.set("Running sensitivity analysis using analytical formulas...")
+            self.status_var.set("Running sensitivity analysis with distribution-aware formulas...")
             self.root.update()
             
-            # Run sensitivity analysis using ANALYTICAL formulas
-            results = self.simulator.run_sensitivity_analysis(
-                self.arrival_dist.get(), arrival_params,
-                self.service_dist.get(), service_params,
-                mu, num_servers, lambda_range
+            # Calculate SCV for distributions
+            ca2 = QueueAnalytics.get_scv_for_distribution(arrival_dist, arrival_params)
+            cs2 = QueueAnalytics.get_scv_for_distribution(service_dist, service_params)
+            
+            # Determine queue type
+            is_markovian = (arrival_dist in ["Exponential", "Poisson"] and 
+                           service_dist in ["Exponential", "Poisson"])
+            
+            queue_type = "MMC" if num_servers > 1 else "MM1"
+            if not is_markovian:
+                queue_type = "GGC" if num_servers > 1 else "GG1"
+            
+            # Run sensitivity with proper parameters
+            results = QueueAnalytics.calculate_sensitivity(
+                lambda_range, mu, num_servers,
+                queue_type=queue_type,
+                arrival_dist=arrival_dist,
+                service_dist=service_dist,
+                arrival_params=arrival_params,
+                service_params=service_params,
+                ca2=ca2, cs2=cs2
             )
             
+            # Convert to DataFrame
+            results_df = pd.DataFrame(results)
+            
             # Update sensitivity graph
-            self.update_sensitivity_graph(results)
+            self.update_sensitivity_graph(results_df)
             
             # Switch to sensitivity tab
             self.notebook.select(5)  # Sensitivity tab
             
-            self.status_var.set(f"Sensitivity analysis completed with {len(results)} points")
+            self.status_var.set(f"Sensitivity analysis completed with {len(results_df)} points")
             messagebox.showinfo("Sensitivity Analysis", 
                               f"Sensitivity analysis completed!\n"
                               f"Analyzed λ from {lambda_range[0]:.2f} to {lambda_range[-1]:.2f}\n"
-                              f"System capacity: {num_servers * mu:.2f}")
+                              f"Arrival: {arrival_dist} (Ca²={ca2:.3f})\n"
+                              f"Service: {service_dist} (Cs²={cs2:.3f})")
             
         except Exception as e:
             messagebox.showerror("Error", f"Sensitivity analysis failed: {str(e)}")
             self.status_var.set("Sensitivity analysis failed")
-    
+
     def update_sensitivity_graph(self, results: pd.DataFrame):
         """Update sensitivity graph with results."""
         self.sens_ax.clear()
@@ -1363,7 +1530,7 @@ class QueueSimulatorGUI:
             self.sens_ax.fill_between(valid_results['lambda'], valid_results[metric], 
                                      alpha=0.3, color='blue')
             
-            # Add stability line (rho = 1)
+            # Add stability line (rho = 0.95)
             if 'rho' in valid_results.columns:
                 # Find where system becomes unstable (rho >= 0.95)
                 unstable_mask = valid_results['rho'] >= 0.95
@@ -1373,7 +1540,7 @@ class QueueSimulatorGUI:
                                        linestyle='--', linewidth=2, 
                                        label=f'Stability limit (λ={first_unstable["lambda"]:.2f})')
             
-            # Add current lambda marker if available
+            # Add current lambda marker
             if 'lam' in self.current_params:
                 current_lam = self.current_params['lam']
                 # Find closest lambda in results
@@ -1381,19 +1548,24 @@ class QueueSimulatorGUI:
                 current_point = valid_results.loc[closest_idx]
                 self.sens_ax.plot(current_lam, current_point[metric], 'ro', 
                                 markersize=8, label=f'Current (λ={current_lam:.2f})')
-                
-                # Add annotation
-                self.sens_ax.annotate(f'Current: λ={current_lam:.2f}\n{metric_names.get(metric, metric)}={current_point[metric]:.2f}',
-                                    xy=(current_lam, current_point[metric]),
-                                    xytext=(10, 10), textcoords='offset points',
-                                    bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.5))
         
         # Set labels and title
         self.sens_ax.set_xlabel('Arrival Rate (λ)', fontweight='bold')
         self.sens_ax.set_ylabel(metric_names.get(metric, metric), fontweight='bold')
         
+        # Get distribution info for title
+        arrival_dist = self.arrival_dist.get()
+        service_dist = self.service_dist.get()
+        
         title = f"Sensitivity Analysis: {metric_names.get(metric, metric)} vs Arrival Rate"
-        subtitle = f"Using Analytical Formulas ({self.arrival_dist.get()}/{self.service_dist.get()}/{self.servers_entry.get()})"
+        subtitle = f"Queue: {arrival_dist}/{service_dist}/{self.servers_entry.get()}"
+        
+        # Add SCV info if available
+        if not results.empty and 'ca2' in results.columns and 'cs2' in results.columns:
+            ca2 = results['ca2'].iloc[0]
+            cs2 = results['cs2'].iloc[0]
+            subtitle += f" (Ca²={ca2:.2f}, Cs²={cs2:.2f})"
+        
         self.sens_ax.set_title(f"{title}\n{subtitle}", fontsize=12, fontweight='bold')
         
         # Add grid and legend

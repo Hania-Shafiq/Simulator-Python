@@ -534,13 +534,42 @@ class QueueSimulator:
                                 service_dist: str, service_params: Dict,
                                 mu: float, num_servers: int,
                                 lambda_range: List[float] = None) -> pd.DataFrame:
-        """Run sensitivity analysis by varying arrival rate using ANALYTICAL formulas."""
+        """Run sensitivity analysis using distribution-aware formulas."""
         if lambda_range is None:
             # Default range from 0.1 to 0.95 * capacity
             max_lambda = 0.95 * num_servers * mu
             lambda_range = np.linspace(0.1, max_lambda, 20)
         
         results = []
+        
+        # Helper function to calculate SCV
+        def get_scv(dist: str, params: dict) -> float:
+            if dist in ["Exponential", "Poisson"]:
+                return 1.0
+            elif dist == "Uniform":
+                if 'min' in params and 'max' in params:
+                    a = params['min']
+                    b = params['max']
+                    mean = (a + b) / 2
+                    variance = ((b - a) ** 2) / 12
+                    return variance / (mean ** 2) if mean != 0 else 0
+                return 1.0/3.0
+            elif dist == "Normal":
+                if 'mean' in params and 'stddev' in params:
+                    mean = params['mean']
+                    stddev = params['stddev']
+                    return (stddev ** 2) / (mean ** 2) if mean != 0 else 0
+                return 0.25
+            elif dist == "Gamma":
+                if 'shape' in params:
+                    shape = params['shape']
+                    return 1.0 / shape if shape > 0 else 1.0
+                return 0.5
+            return 1.0
+        
+        # Calculate SCV
+        ca2 = get_scv(arrival_dist, arrival_params)
+        cs2 = get_scv(service_dist, service_params)
         
         for lam in lambda_range:
             # Calculate traffic intensity
@@ -556,51 +585,49 @@ class QueueSimulator:
                     'utilization': 100.0,
                     'throughput': lam,
                     'queue_length': float('inf'),
-                    'status': 'Unstable'
+                    'status': 'Unstable',
+                    'ca2': ca2,
+                    'cs2': cs2
                 })
                 continue
             
-            # Use analytical formulas based on queue type
-            if arrival_dist in ["Exponential", "Poisson"] and service_dist in ["Exponential", "Poisson"]:
-                # M/M/c queue
+            # Determine formula based on distributions
+            is_markovian_arrival = arrival_dist in ["Exponential", "Poisson"]
+            is_markovian_service = service_dist in ["Exponential", "Poisson"]
+            
+            if is_markovian_arrival and is_markovian_service:
+                # M/M/c formulas
                 if num_servers == 1:
-                    # M/M/1 formulas
+                    # M/M/1
                     wq = rho / (mu * (1 - rho))
-                    w = wq + 1/mu
-                    lq = lam * wq
-                    l = lam * w
                 else:
-                    # M/M/c formulas
+                    # M/M/c
                     r = lam / mu
                     sum_part = sum([(r**k) / math.factorial(k) for k in range(num_servers)])
                     last_term = (r**num_servers) / (math.factorial(num_servers) * (1 - rho))
                     p0 = 1.0 / (sum_part + last_term)
-                    
                     lq = (p0 * (r**num_servers) * rho) / (math.factorial(num_servers) * ((1 - rho)**2))
                     wq = lq / lam
-                    w = wq + 1/mu
-                    l = lq + r
             else:
-                # G/G/c approximation (Allen-Cunneen approximation)
-                # For simplicity, we'll use M/M/c as baseline and adjust
-                # In a real implementation, you'd use Allen-Cunneen formula
+                # G/G/c approximation
                 if num_servers == 1:
-                    wq_base = rho / (mu * (1 - rho))
+                    # G/G/1 - Kingman's approximation
+                    wq_mm1 = rho / (mu * (1 - rho))
+                    wq = wq_mm1 * ((ca2 + cs2) / 2)
                 else:
+                    # G/G/c - Allen-Cunneen approximation
+                    # First calculate M/M/c as baseline
                     r = lam / mu
                     sum_part = sum([(r**k) / math.factorial(k) for k in range(num_servers)])
                     last_term = (r**num_servers) / (math.factorial(num_servers) * (1 - rho))
                     p0 = 1.0 / (sum_part + last_term)
-                    lq_base = (p0 * (r**num_servers) * rho) / (math.factorial(num_servers) * ((1 - rho)**2))
-                    wq_base = lq_base / lam
-                
-                # Simple adjustment factor for non-exponential distributions
-                adjustment = 1.2  # Conservative estimate for general distributions
-                wq = wq_base * adjustment
+                    lq_mmc = (p0 * (r**num_servers) * rho) / (math.factorial(num_servers) * ((1 - rho)**2))
+                    wq_mmc = lq_mmc / lam
+                    wq = wq_mmc * ((ca2 + cs2) / 2)
             
-                w = wq + 1/mu
-                l = lam * w
-                lq = lam * wq
+            w = wq + 1/mu
+            lq = lam * wq
+            l = lam * w
             
             results.append({
                 'lambda': lam,
@@ -610,7 +637,9 @@ class QueueSimulator:
                 'utilization': rho * 100,
                 'throughput': lam,
                 'queue_length': lq,
-                'status': 'Stable'
+                'status': 'Stable',
+                'ca2': ca2,
+                'cs2': cs2
             })
         
         return pd.DataFrame(results)
