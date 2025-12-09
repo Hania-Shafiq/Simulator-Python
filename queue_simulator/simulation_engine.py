@@ -147,7 +147,7 @@ class QueueSimulator:
         return max(0, min(1, cdf))
 
 
-    
+
     def simulate_single_server_cp(self, arrival_dist: str, arrival_params: Dict,
                                  service_dist: str, service_params: Dict,
                                  lam: float, mu: float) -> pd.DataFrame:
