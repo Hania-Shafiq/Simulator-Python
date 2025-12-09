@@ -10,35 +10,17 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import seaborn as sns
-from tkinter import font as tkfont
+
 from simulation_engine import QueueSimulator
 from queue_analytics import QueueAnalytics
 from distributions import get_distribution_params
 
-class ModernQueueSimulatorGUI:
-    """Main GUI application for queue simulator with modern design."""
+class QueueSimulatorGUI:
+    """Main GUI application for queue simulator."""
     
     def __init__(self, root):
         self.root = root
         self.root.title("Sapphire Shopping Outlet - Queue Simulator")
-        self.root.configure(bg='#f8f9fa')
-        
-        # Set modern color scheme
-        self.colors = {
-            'primary': '#3498db',
-            'secondary': '#2ecc71',
-            'accent': '#e74c3c',
-            'dark': '#2c3e50',
-            'light': '#ecf0f1',
-            'background': '#f8f9fa',
-            'success': '#27ae60',
-            'warning': '#f39c12',
-            'danger': '#e74c3c',
-            'info': '#3498db'
-        }
-        
-        # Configure styles
-        self.configure_styles()
         
         # Set seaborn style for better looking plots
         sns.set_style("whitegrid")
@@ -51,213 +33,24 @@ class ModernQueueSimulatorGUI:
         self.current_df = pd.DataFrame()
         self.current_params = {}
         
-        # Create main container with modern design
+        # Create main container with scrollbar
         self.create_main_container()
         
         # Maximize window
         self.root.state('zoomed')
     
-    def configure_styles(self):
-        """Configure modern ttk styles."""
-        style = ttk.Style()
-        
-        # Create custom themes
-        style.theme_create('modern', parent='alt', settings={
-            'TLabel': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10)
-                }
-            },
-            'TButton': {
-                'configure': {
-                    'background': self.colors['primary'],
-                    'foreground': 'white',
-                    'font': ('Segoe UI', 10, 'bold'),
-                    'borderwidth': 1,
-                    'relief': 'raised',
-                    'padding': (12, 6)
-                },
-                'map': {
-                    'background': [('active', self.colors['secondary']), 
-                                  ('disabled', '#95a5a6')],
-                    'foreground': [('disabled', '#7f8c8d')]
-                }
-            },
-            'TEntry': {
-                'configure': {
-                    'fieldbackground': 'white',
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10),
-                    'padding': 8,
-                    'relief': 'solid',
-                    'borderwidth': 1
-                }
-            },
-            'TCombobox': {
-                'configure': {
-                    'fieldbackground': 'white',
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10),
-                    'padding': 6
-                }
-            },
-            'TRadiobutton': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10)
-                }
-            },
-            'TCheckbutton': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10)
-                }
-            },
-            'TLabelframe': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'foreground': self.colors['primary'],
-                    'font': ('Segoe UI', 11, 'bold'),
-                    'relief': 'solid',
-                    'borderwidth': 2
-                }
-            },
-            'TLabelframe.Label': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'foreground': self.colors['primary'],
-                    'font': ('Segoe UI', 11, 'bold')
-                }
-            },
-            'TNotebook': {
-                'configure': {
-                    'background': self.colors['background'],
-                    'tabmargins': [5, 5, 2, 0]
-                }
-            },
-            'TNotebook.Tab': {
-                'configure': {
-                    'background': '#e9ecef',
-                    'foreground': self.colors['dark'],
-                    'font': ('Segoe UI', 10, 'bold'),
-                    'padding': [12, 8],
-                    'borderwidth': 1
-                },
-                'map': {
-                    'background': [('selected', self.colors['primary']),
-                                  ('active', self.colors['light'])],
-                    'foreground': [('selected', 'white'),
-                                  ('active', self.colors['dark'])]
-                }
-            },
-            'Treeview': {
-                'configure': {
-                    'background': 'white',
-                    'foreground': self.colors['dark'],
-                    'fieldbackground': 'white',
-                    'font': ('Segoe UI', 9)
-                },
-                'map': {
-                    'background': [('selected', self.colors['primary'])],
-                    'foreground': [('selected', 'white')]
-                }
-            },
-            'Vertical.TScrollbar': {
-                'configure': {
-                    'background': '#e9ecef',
-                    'troughcolor': self.colors['background'],
-                    'borderwidth': 0,
-                    'relief': 'flat'
-                }
-            },
-            'Horizontal.TScrollbar': {
-                'configure': {
-                    'background': '#e9ecef',
-                    'troughcolor': self.colors['background'],
-                    'borderwidth': 0,
-                    'relief': 'flat'
-                }
-            }
-        })
-        
-        style.theme_use('modern')
-        
-        # Additional custom styles
-        style.configure('Title.TLabel', 
-                       font=('Segoe UI', 24, 'bold'),
-                       foreground=self.colors['dark'],
-                       background=self.colors['background'])
-        
-        style.configure('Subtitle.TLabel',
-                       font=('Segoe UI', 11),
-                       foreground='#6c757d',
-                       background=self.colors['background'])
-        
-        style.configure('Card.TFrame',
-                       background='white',
-                       relief='solid',
-                       borderwidth=1)
-        
-        style.configure('Success.TButton',
-                       background=self.colors['success'])
-        
-        style.configure('Warning.TButton',
-                       background=self.colors['warning'])
-        
-        style.configure('Danger.TButton',
-                       background=self.colors['danger'])
-        
-        style.configure('Info.TButton',
-                       background=self.colors['info'])
-    
     def create_main_container(self):
         """Create main container with scrollbar for entire application."""
-        # Create main frame with gradient background
-        main_frame = tk.Frame(self.root, bg=self.colors['background'])
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Create main frame
+        main_frame = ttk.Frame(self.root)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Header with gradient
-        header_frame = tk.Frame(main_frame, bg=self.colors['dark'], height=80)
-        header_frame.pack(fill=tk.X, side=tk.TOP)
-        header_frame.pack_propagate(False)
-        
-        # Title in header
-        title_container = tk.Frame(header_frame, bg=self.colors['dark'])
-        title_container.pack(fill=tk.BOTH, expand=True, padx=40, pady=10)
-        
-        title_label = tk.Label(title_container, 
-                              text="SAPPHIRE SHOPPING OUTLET",
-                              font=("Segoe UI", 24, "bold"),
-                              fg="white",
-                              bg=self.colors['dark'])
-        title_label.pack(side=tk.LEFT)
-        
-        subtitle_label = tk.Label(title_container,
-                                 text="Advanced Queueing Theory Simulation Tool",
-                                 font=("Segoe UI", 11),
-                                 fg="#bdc3c7",
-                                 bg=self.colors['dark'])
-        subtitle_label.pack(side=tk.LEFT, padx=(20, 0), pady=(8, 0))
-        
-        # Add decorative element
-        decor_frame = tk.Frame(header_frame, bg=self.colors['primary'], height=4)
-        decor_frame.pack(fill=tk.X, side=tk.BOTTOM)
-        
-        # Create canvas and scrollbar for content
-        content_frame = tk.Frame(main_frame, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.canvas = tk.Canvas(content_frame, bg=self.colors['background'], 
-                               highlightthickness=0)
-        scrollbar = ttk.Scrollbar(content_frame, orient="vertical", 
-                                 command=self.canvas.yview)
+        # Create canvas and scrollbar
+        self.canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=self.canvas.yview)
         
         # Create scrollable frame
-        self.scrollable_frame = tk.Frame(self.canvas, bg=self.colors['background'])
+        self.scrollable_frame = ttk.Frame(self.canvas)
         
         # Bind the scrollable frame to the canvas
         self.scrollable_frame.bind(
@@ -266,18 +59,17 @@ class ModernQueueSimulatorGUI:
         )
         
         # Create window in canvas
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, 
-                                 anchor="nw", width=self.root.winfo_screenwidth())
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
         # Pack canvas and scrollbar
-        self.canvas.pack(side="left", fill="both", expand=True, padx=(40, 0), pady=30)
-        scrollbar.pack(side="right", fill="y", padx=(0, 40), pady=30)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         # Bind mouse wheel for scrolling
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
-        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)  # Linux scroll up
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)  # Linux scroll down
         
         # Create GUI widgets
         self.create_widgets()
@@ -291,16 +83,25 @@ class ModernQueueSimulatorGUI:
     
     def create_widgets(self):
         """Create all GUI widgets in the scrollable frame."""
-        # Create a frame for content with padding
-        content_container = tk.Frame(self.scrollable_frame, bg=self.colors['background'])
-        content_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Title
+        title_frame = ttk.Frame(self.scrollable_frame)
+        title_frame.pack(fill=tk.X, padx=20, pady=(10, 5))
         
-        # Quick stats cards at the top
-        self.create_stats_cards(content_container)
+        title_label = ttk.Label(title_frame, 
+                               text="Sapphire Shopping Outlet - Queue Simulator",
+                               font=("Arial", 18, "bold"),
+                               foreground="#2c3e50")
+        title_label.pack()
         
-        # Notebook for tabs with modern styling
-        self.notebook = ttk.Notebook(content_container)
-        self.notebook.pack(fill=tk.BOTH, expand=True, pady=(20, 0))
+        subtitle_label = ttk.Label(title_frame,
+                                  text="Advanced Queueing Theory Simulation Tool",
+                                  font=("Arial", 10),
+                                  foreground="#7f8c8d")
+        subtitle_label.pack(pady=(0, 10))
+        
+        # Notebook for tabs
+        self.notebook = ttk.Notebook(self.scrollable_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
         
         # Create tabs in order
         self.create_setup_tab()
@@ -310,99 +111,24 @@ class ModernQueueSimulatorGUI:
         self.create_gantt_tab()
         self.create_sensitivity_tab()
         
-        # Status bar at bottom
-        self.create_status_bar(content_container)
-    
-    def create_stats_cards(self, parent):
-        """Create quick stats cards at the top."""
-        cards_frame = tk.Frame(parent, bg=self.colors['background'])
-        cards_frame.pack(fill=tk.X, pady=(0, 20))
+        # Status bar
+        status_frame = ttk.Frame(self.scrollable_frame)
+        status_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
         
-        # Card 1: Simulation Status
-        card1 = tk.Frame(cards_frame, bg='white', relief='solid', 
-                         borderwidth=1, highlightbackground='#e9ecef',
-                         highlightthickness=1)
-        card1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        
-        tk.Label(card1, text="📊 SIMULATION STATUS", 
-                bg='white', fg=self.colors['dark'],
-                font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, padx=15, pady=(15, 5))
-        
-        self.status_card_label = tk.Label(card1, text="Ready to run", 
-                                         bg='white', fg='#6c757d',
-                                         font=("Segoe UI", 9))
-        self.status_card_label.pack(anchor=tk.W, padx=15, pady=(0, 15))
-        
-        # Card 2: Queue Parameters
-        card2 = tk.Frame(cards_frame, bg='white', relief='solid', 
-                         borderwidth=1, highlightbackground='#e9ecef',
-                         highlightthickness=1)
-        card2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-        
-        tk.Label(card2, text="⚙️ QUEUE PARAMETERS", 
-                bg='white', fg=self.colors['dark'],
-                font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, padx=15, pady=(15, 5))
-        
-        self.params_card_label = tk.Label(card2, text="λ: 0.5, μ: 1.0, c: 1", 
-                                         bg='white', fg='#6c757d',
-                                         font=("Segoe UI", 9))
-        self.params_card_label.pack(anchor=tk.W, padx=15, pady=(0, 15))
-        
-        # Card 3: Last Simulation
-        card3 = tk.Frame(cards_frame, bg='white', relief='solid', 
-                         borderwidth=1, highlightbackground='#e9ecef',
-                         highlightthickness=1)
-        card3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
-        
-        tk.Label(card3, text="⏱️ LAST SIMULATION", 
-                bg='white', fg=self.colors['dark'],
-                font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, padx=15, pady=(15, 5))
-        
-        self.last_sim_card_label = tk.Label(card3, text="No simulation yet", 
-                                           bg='white', fg='#6c757d',
-                                           font=("Segoe UI", 9))
-        self.last_sim_card_label.pack(anchor=tk.W, padx=15, pady=(0, 15))
-    
-    def create_status_bar(self, parent):
-        """Create modern status bar."""
-        status_frame = tk.Frame(parent, bg=self.colors['dark'], height=30)
-        status_frame.pack(fill=tk.X, pady=(20, 0))
-        status_frame.pack_propagate(False)
-        
-        # Left side: Status message
         self.status_var = tk.StringVar(value="Ready")
-        status_label = tk.Label(status_frame, textvariable=self.status_var, 
-                               bg=self.colors['dark'], fg='white',
-                               font=("Segoe UI", 9), anchor=tk.W)
-        status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(20, 10), pady=5)
-        
-        # Right side: Timestamp
-        self.time_var = tk.StringVar(value="")
-        time_label = tk.Label(status_frame, textvariable=self.time_var,
-                             bg=self.colors['dark'], fg='#bdc3c7',
-                             font=("Segoe UI", 9), anchor=tk.E)
-        time_label.pack(side=tk.RIGHT, padx=(10, 20), pady=5)
-        
-        # Update timestamp periodically
-        self.update_timestamp()
-    
-    def update_timestamp(self):
-        """Update the timestamp in status bar."""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.time_var.set(f"🕒 {current_time}")
-        self.root.after(1000, self.update_timestamp)
+        status_bar = ttk.Label(status_frame, textvariable=self.status_var, 
+                               relief=tk.SUNKEN, anchor=tk.W, padding=5)
+        status_bar.pack(fill=tk.X)
     
     def create_setup_tab(self):
-        """Create setup/configuration tab with modern layout."""
-        self.setup_frame = tk.Frame(self.notebook, bg=self.colors['background'])
+        """Create setup/configuration tab with better layout."""
+        self.setup_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.setup_frame, text="⚙️ Setup")
         
-        # Create a canvas for the setup tab
-        setup_canvas = tk.Canvas(self.setup_frame, bg=self.colors['background'], 
-                                highlightthickness=0)
-        setup_scrollbar = ttk.Scrollbar(self.setup_frame, orient="vertical", 
-                                       command=setup_canvas.yview)
-        setup_inner_frame = tk.Frame(setup_canvas, bg=self.colors['background'])
+        # Create a canvas for the setup tab as well
+        setup_canvas = tk.Canvas(self.setup_frame)
+        setup_scrollbar = ttk.Scrollbar(self.setup_frame, orient="vertical", command=setup_canvas.yview)
+        setup_inner_frame = ttk.Frame(setup_canvas)
         
         setup_inner_frame.bind(
             "<Configure>",
@@ -412,34 +138,24 @@ class ModernQueueSimulatorGUI:
         setup_canvas.create_window((0, 0), window=setup_inner_frame, anchor="nw")
         setup_canvas.configure(yscrollcommand=setup_scrollbar.set)
         
-        setup_canvas.pack(side="left", fill="both", expand=True, padx=20, pady=20)
+        setup_canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
         setup_scrollbar.pack(side="right", fill="y")
         
         # Simulation Method Selection
-        method_frame = tk.Frame(setup_inner_frame, bg='white', relief='solid', 
-                               borderwidth=1, highlightbackground='#e9ecef',
-                               highlightthickness=1)
-        method_frame.pack(fill="x", pady=(0, 15))
-        
-        tk.Label(method_frame, text="Simulation Method", 
-                bg='white', fg=self.colors['primary'],
-                font=("Segoe UI", 11, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 10))
+        method_frame = ttk.LabelFrame(setup_inner_frame, text="Simulation Method", padding=15)
+        method_frame.pack(fill="x", padx=10, pady=10)
         
         self.sim_method = tk.StringVar(value="cp")
-        
-        method_content = tk.Frame(method_frame, bg='white')
-        method_content.pack(fill="x", padx=20, pady=(0, 15))
-        
-        ttk.Radiobutton(method_content, text="CP-based (Simulate until CP=0.99999)", 
-                       variable=self.sim_method, value="cp").pack(anchor="w", pady=5)
-        ttk.Radiobutton(method_content, text="Fixed Number of Customers", 
-                       variable=self.sim_method, value="fixed").pack(anchor="w", pady=5)
+        ttk.Radiobutton(method_frame, text="CP-based (Simulate until CP=0.99999)", 
+                       variable=self.sim_method, value="cp").pack(anchor="w", padx=10, pady=5)
+        ttk.Radiobutton(method_frame, text="Fixed Number of Customers", 
+                       variable=self.sim_method, value="fixed").pack(anchor="w", padx=10, pady=5)
         
         # Fixed customers entry (initially hidden)
-        self.fixed_frame = tk.Frame(method_content, bg='white')
-        self.fixed_frame.pack(fill="x", padx=20, pady=5)
+        self.fixed_frame = ttk.Frame(method_frame)
+        self.fixed_frame.pack(fill="x", padx=30, pady=5)
         ttk.Label(self.fixed_frame, text="Number of Customers:").pack(side="left", padx=(0, 10))
-        self.customers_entry = ttk.Entry(self.fixed_frame, width=20)
+        self.customers_entry = ttk.Entry(self.fixed_frame, width=15)
         self.customers_entry.pack(side="left")
         self.customers_entry.insert(0, "100")
         self.fixed_frame.pack_forget()  # Hide initially
@@ -447,182 +163,168 @@ class ModernQueueSimulatorGUI:
         # Bind method change
         self.sim_method.trace('w', self.toggle_sim_method)
         
-        # Two-column layout for arrival and service
-        columns_frame = tk.Frame(setup_inner_frame, bg=self.colors['background'])
-        columns_frame.pack(fill="x", pady=(0, 15))
+        # Arrival Configuration
+        arrival_frame = ttk.LabelFrame(setup_inner_frame, text="Arrival Process Configuration", padding=15)
+        arrival_frame.pack(fill="x", padx=10, pady=10)
         
-        # Left column - Arrival Configuration
-        arrival_frame = tk.Frame(columns_frame, bg='white', relief='solid', 
-                                borderwidth=1, highlightbackground='#e9ecef',
-                                highlightthickness=1)
-        arrival_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        # Use grid for better alignment
+        arrival_frame.columnconfigure(0, weight=1)
+        arrival_frame.columnconfigure(1, weight=2)
+        arrival_frame.columnconfigure(2, weight=1)
+        arrival_frame.columnconfigure(3, weight=2)
         
-        tk.Label(arrival_frame, text="Arrival Process Configuration", 
-                bg='white', fg=self.colors['primary'],
-                font=("Segoe UI", 11, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 10))
-        
-        arrival_content = tk.Frame(arrival_frame, bg='white')
-        arrival_content.pack(fill="both", expand=True, padx=20, pady=(0, 15))
-        
-        # Arrival Type
-        ttk.Label(arrival_content, text="Arrival Type:", 
-                 font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", pady=10)
+        # Row 0: Arrival Type
+        ttk.Label(arrival_frame, text="Arrival Type:", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
         
         self.arrival_type = tk.StringVar(value="M")
-        arrival_type_frame = tk.Frame(arrival_content, bg='white')
-        arrival_type_frame.grid(row=0, column=1, sticky="w", pady=10)
+        arrival_type_frame = ttk.Frame(arrival_frame)
+        arrival_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=10)
         
         ttk.Radiobutton(arrival_type_frame, text="M (Markovian)", 
-                       variable=self.arrival_type, value="M").pack(side="left", padx=(0, 15))
+                       variable=self.arrival_type, value="M").pack(side="left", padx=10)
         ttk.Radiobutton(arrival_type_frame, text="G (General)", 
-                       variable=self.arrival_type, value="G").pack(side="left")
+                       variable=self.arrival_type, value="G").pack(side="left", padx=10)
         
-        # Arrival Rate
-        ttk.Label(arrival_content, text="Arrival Rate (λ):").grid(
-            row=1, column=0, sticky="w", pady=10)
-        self.lambda_entry = ttk.Entry(arrival_content, width=25)
-        self.lambda_entry.grid(row=1, column=1, sticky="w", pady=10)
+        # Row 1: Arrival Rate
+        ttk.Label(arrival_frame, text="Arrival Rate (λ):").grid(
+            row=1, column=0, sticky="w", padx=10, pady=5)
+        self.lambda_entry = ttk.Entry(arrival_frame, width=20)
+        self.lambda_entry.grid(row=1, column=1, sticky="w", padx=10, pady=5)
         self.lambda_entry.insert(0, "0.5")
+        ttk.Label(arrival_frame, text="customers per time unit").grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=10, pady=5)
         
-        # Arrival Distribution
-        ttk.Label(arrival_content, text="Distribution:").grid(
-            row=2, column=0, sticky="w", pady=10)
+        # Row 2: Arrival Distribution
+        ttk.Label(arrival_frame, text="Distribution:").grid(
+            row=2, column=0, sticky="w", padx=10, pady=5)
         self.arrival_dist = tk.StringVar(value="Exponential")
-        self.arrival_dist_combo = ttk.Combobox(arrival_content, textvariable=self.arrival_dist,
+        self.arrival_dist_combo = ttk.Combobox(arrival_frame, textvariable=self.arrival_dist,
                                               values=["Exponential", "Poisson", "Uniform", "Normal", "Gamma"],
-                                              state="readonly", width=23)
-        self.arrival_dist_combo.grid(row=2, column=1, sticky="w", pady=10)
+                                              state="readonly", width=20)
+        self.arrival_dist_combo.grid(row=2, column=1, sticky="w", padx=10, pady=5)
         
-        # Arrival Parameters
-        ttk.Label(arrival_content, text="Parameters:").grid(
-            row=3, column=0, sticky="w", pady=10)
-        self.arrival_params = ttk.Entry(arrival_content, width=25)
-        self.arrival_params.grid(row=3, column=1, sticky="w", pady=10)
+        # Row 2: Arrival Parameters
+        ttk.Label(arrival_frame, text="Parameters:").grid(
+            row=2, column=2, sticky="w", padx=10, pady=5)
+        self.arrival_params = ttk.Entry(arrival_frame, width=25)
+        self.arrival_params.grid(row=2, column=3, sticky="w", padx=10, pady=5)
         self.arrival_params.insert(0, "rate=0.5")
         
         # Parameter help
-        param_help = ttk.Label(arrival_content, 
+        param_help = ttk.Label(arrival_frame, 
                               text="Examples: rate=0.5, min=1,max=3, mean=2,std=0.5, shape=2,scale=0.5",
-                              font=("Segoe UI", 8), foreground="#7f8c8d")
-        param_help.grid(row=4, column=0, columnspan=2, sticky="w", pady=(5, 10))
+                              font=("Arial", 8), foreground="#7f8c8d")
+        param_help.grid(row=3, column=1, columnspan=3, sticky="w", padx=10, pady=(0, 10))
         
-        # Right column - Service Configuration
-        service_frame = tk.Frame(columns_frame, bg='white', relief='solid', 
-                                borderwidth=1, highlightbackground='#e9ecef',
-                                highlightthickness=1)
-        service_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        # Service Configuration
+        service_frame = ttk.LabelFrame(setup_inner_frame, text="Service Process Configuration", padding=15)
+        service_frame.pack(fill="x", padx=10, pady=10)
         
-        tk.Label(service_frame, text="Service Process Configuration", 
-                bg='white', fg=self.colors['primary'],
-                font=("Segoe UI", 11, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 10))
+        service_frame.columnconfigure(0, weight=1)
+        service_frame.columnconfigure(1, weight=2)
+        service_frame.columnconfigure(2, weight=1)
+        service_frame.columnconfigure(3, weight=2)
         
-        service_content = tk.Frame(service_frame, bg='white')
-        service_content.pack(fill="both", expand=True, padx=20, pady=(0, 15))
-        
-        # Service Type
-        ttk.Label(service_content, text="Service Type:", 
-                 font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", pady=10)
+        # Row 0: Service Type
+        ttk.Label(service_frame, text="Service Type:", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
         
         self.service_type = tk.StringVar(value="M")
-        service_type_frame = tk.Frame(service_content, bg='white')
-        service_type_frame.grid(row=0, column=1, sticky="w", pady=10)
+        service_type_frame = ttk.Frame(service_frame)
+        service_type_frame.grid(row=0, column=1, columnspan=3, sticky="w", padx=10)
         
         ttk.Radiobutton(service_type_frame, text="M (Markovian)", 
-                       variable=self.service_type, value="M").pack(side="left", padx=(0, 15))
+                       variable=self.service_type, value="M").pack(side="left", padx=10)
         ttk.Radiobutton(service_type_frame, text="G (General)", 
-                       variable=self.service_type, value="G").pack(side="left")
+                       variable=self.service_type, value="G").pack(side="left", padx=10)
         
-        # Service Rate
-        ttk.Label(service_content, text="Service Rate (μ):").grid(
-            row=1, column=0, sticky="w", pady=10)
-        self.mu_entry = ttk.Entry(service_content, width=25)
-        self.mu_entry.grid(row=1, column=1, sticky="w", pady=10)
+        # Row 1: Service Rate
+        ttk.Label(service_frame, text="Service Rate (μ):").grid(
+            row=1, column=0, sticky="w", padx=10, pady=5)
+        self.mu_entry = ttk.Entry(service_frame, width=20)
+        self.mu_entry.grid(row=1, column=1, sticky="w", padx=10, pady=5)
         self.mu_entry.insert(0, "1.0")
+        ttk.Label(service_frame, text="customers per time unit").grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=10, pady=5)
         
-        # Service Distribution
-        ttk.Label(service_content, text="Distribution:").grid(
-            row=2, column=0, sticky="w", pady=10)
+        # Row 2: Service Distribution
+        ttk.Label(service_frame, text="Distribution:").grid(
+            row=2, column=0, sticky="w", padx=10, pady=5)
         self.service_dist = tk.StringVar(value="Exponential")
-        self.service_dist_combo = ttk.Combobox(service_content, textvariable=self.service_dist,
+        self.service_dist_combo = ttk.Combobox(service_frame, textvariable=self.service_dist,
                                               values=["Exponential", "Poisson", "Uniform", "Normal", "Gamma"],
-                                              state="readonly", width=23)
-        self.service_dist_combo.grid(row=2, column=1, sticky="w", pady=10)
+                                              state="readonly", width=20)
+        self.service_dist_combo.grid(row=2, column=1, sticky="w", padx=10, pady=5)
         
-        # Service Parameters
-        ttk.Label(service_content, text="Parameters:").grid(
-            row=3, column=0, sticky="w", pady=10)
-        self.service_params = ttk.Entry(service_content, width=25)
-        self.service_params.grid(row=3, column=1, sticky="w", pady=10)
+        # Row 2: Service Parameters
+        ttk.Label(service_frame, text="Parameters:").grid(
+            row=2, column=2, sticky="w", padx=10, pady=5)
+        self.service_params = ttk.Entry(service_frame, width=25)
+        self.service_params.grid(row=2, column=3, sticky="w", padx=10, pady=5)
         self.service_params.insert(0, "rate=1.0")
         
         # System Configuration
-        system_frame = tk.Frame(setup_inner_frame, bg='white', relief='solid', 
-                               borderwidth=1, highlightbackground='#e9ecef',
-                               highlightthickness=1)
-        system_frame.pack(fill="x", pady=(0, 20))
+        system_frame = ttk.LabelFrame(setup_inner_frame, text="System Configuration", padding=15)
+        system_frame.pack(fill="x", padx=10, pady=10)
         
-        tk.Label(system_frame, text="System Configuration", 
-                bg='white', fg=self.colors['primary'],
-                font=("Segoe UI", 11, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 10))
+        system_frame.columnconfigure(0, weight=1)
+        system_frame.columnconfigure(1, weight=2)
+        system_frame.columnconfigure(2, weight=1)
+        system_frame.columnconfigure(3, weight=2)
         
-        system_content = tk.Frame(system_frame, bg='white')
-        system_content.pack(fill="x", padx=20, pady=(0, 15))
-        
-        # Number of Servers
-        ttk.Label(system_content, text="Number of Servers (c):").pack(side="left", padx=(0, 10))
-        self.servers_entry = ttk.Entry(system_content, width=20)
-        self.servers_entry.pack(side="left", padx=(0, 40))
+        # Row 0: Number of Servers
+        ttk.Label(system_frame, text="Number of Servers (c):").grid(
+            row=0, column=0, sticky="w", padx=10, pady=10)
+        self.servers_entry = ttk.Entry(system_frame, width=20)
+        self.servers_entry.grid(row=0, column=1, sticky="w", padx=10, pady=10)
         self.servers_entry.insert(0, "1")
         
-        # Max CP for simulation
-        ttk.Label(system_content, text="Max CP (for CP-based):").pack(side="left", padx=(0, 10))
-        self.max_cp_entry = ttk.Entry(system_content, width=20)
-        self.max_cp_entry.pack(side="left")
+        # Row 0: Max CP for simulation
+        ttk.Label(system_frame, text="Max CP (for CP-based):").grid(
+            row=0, column=2, sticky="w", padx=10, pady=10)
+        self.max_cp_entry = ttk.Entry(system_frame, width=20)
+        self.max_cp_entry.grid(row=0, column=3, sticky="w", padx=10, pady=10)
         self.max_cp_entry.insert(0, "0.99999")
         
-        # Control Buttons with modern styling
-        button_frame = tk.Frame(setup_inner_frame, bg=self.colors['background'])
-        button_frame.pack(fill="x", pady=(0, 20))
+        # Control Buttons
+        button_frame = ttk.Frame(setup_inner_frame)
+        button_frame.pack(fill="x", padx=10, pady=20)
         
-        # Main action buttons
-        main_buttons_frame = tk.Frame(button_frame, bg=self.colors['background'])
-        main_buttons_frame.pack(fill="x", pady=(0, 10))
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+        button_frame.columnconfigure(2, weight=1)
+        button_frame.columnconfigure(3, weight=1)
         
-        ttk.Button(main_buttons_frame, text="🚀 Run Simulation", 
-                  command=self.run_simulation, style='Success.TButton',
-                  width=20).pack(side="left", padx=(0, 10))
-        ttk.Button(main_buttons_frame, text="📊 Analytical Results", 
-                  command=self.show_analytics, style='Info.TButton',
-                  width=20).pack(side="left", padx=10)
-        ttk.Button(main_buttons_frame, text="📈 Sensitivity Analysis", 
-                  command=self.run_sensitivity, style='Warning.TButton',
-                  width=20).pack(side="left", padx=10)
-        ttk.Button(main_buttons_frame, text="🔄 Reset All", 
-                  command=self.reset_all, style='Danger.TButton',
-                  width=20).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="🚀 Run Simulation", 
+                  command=self.run_simulation, width=18).grid(row=0, column=0, padx=5, pady=5)
+        ttk.Button(button_frame, text="📊 Analytical Results", 
+                  command=self.show_analytics, width=18).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Button(button_frame, text="📈 Sensitivity Analysis", 
+                  command=self.run_sensitivity, width=18).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Button(button_frame, text="🔄 Reset All", 
+                  command=self.reset_all, width=18).grid(row=0, column=3, padx=5, pady=5)
         
-        # Secondary action buttons
-        secondary_buttons_frame = tk.Frame(button_frame, bg=self.colors['background'])
-        secondary_buttons_frame.pack(fill="x")
-        
-        ttk.Button(secondary_buttons_frame, text="💾 Export Results", 
-                  command=self.export_results, width=20).pack(side="left", padx=(0, 10))
-        ttk.Button(secondary_buttons_frame, text="ℹ️ Help", 
-                  command=self.show_help, width=20).pack(side="left", padx=10)
-        ttk.Button(secondary_buttons_frame, text="📊 View All Charts", 
-                  command=self.show_all_charts, width=20).pack(side="left", padx=10)
-        ttk.Button(secondary_buttons_frame, text="🔍 Quick Stats", 
-                  command=self.show_quick_stats, width=20).pack(side="left", padx=10)
+        # Export and Help buttons in second row
+        ttk.Button(button_frame, text="💾 Export Results", 
+                  command=self.export_results, width=18).grid(row=1, column=0, padx=5, pady=5)
+        ttk.Button(button_frame, text="ℹ️ Help", 
+                  command=self.show_help, width=18).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(button_frame, text="📊 View All Charts", 
+                  command=self.show_all_charts, width=18).grid(row=1, column=2, padx=5, pady=5)
+        ttk.Button(button_frame, text="🔍 Quick Stats", 
+                  command=self.show_quick_stats, width=18).grid(row=1, column=3, padx=5, pady=5)
         
         # Bind events
         self.arrival_type.trace('w', self.update_distribution_options)
         self.service_type.trace('w', self.update_distribution_options)
-        self.arrival_dist.trace('w', self.update_distribution_options)
-        self.service_dist.trace('w', self.update_distribution_options)
+        self.arrival_dist.trace('w', self.update_distribution_options)  # ADD THIS LINE
+        self.service_dist.trace('w', self.update_distribution_options)  # ADD THIS LINE
         self.update_distribution_options()
+                
     
     def show_help(self):
-        """Show help dialog with modern styling."""
+        """Show help dialog."""
         help_text = """
         🎯 Sapphire Shopping Outlet Queue Simulator Help
         
@@ -633,7 +335,6 @@ class ModernQueueSimulatorGUI:
         📊 DISTRIBUTIONS:
         • Markovian (M): Exponential or Poisson distributions
         • General (G): Uniform, Normal, or Gamma distributions
-        
         
         ⚙️ PARAMETERS:
         • Exponential/Poisson: rate=λ (e.g., rate=0.5)
@@ -653,36 +354,14 @@ class ModernQueueSimulatorGUI:
         
         help_window = tk.Toplevel(self.root)
         help_window.title("Help - Queue Simulator")
-        help_window.geometry("700x550")
-        help_window.configure(bg=self.colors['background'])
+        help_window.geometry("600x500")
         
-        # Header
-        header = tk.Frame(help_window, bg=self.colors['primary'], height=60)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        
-        tk.Label(header, text="Help Documentation", 
-                bg=self.colors['primary'], fg='white',
-                font=("Segoe UI", 16, "bold")).pack(expand=True)
-        
-        # Content
-        content_frame = tk.Frame(help_window, bg=self.colors['background'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-        
-        text_widget = scrolledtext.ScrolledText(content_frame, wrap=tk.WORD, 
-                                               font=("Segoe UI", 10), 
-                                               bg='white', fg=self.colors['dark'],
-                                               relief='solid', borderwidth=1)
-        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget = scrolledtext.ScrolledText(help_window, wrap=tk.WORD, 
+                                               font=("Consolas", 10), height=25)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         text_widget.insert(tk.END, help_text)
         text_widget.config(state=tk.DISABLED)
     
-    # [Rest of the methods remain exactly the same - only UI creation methods were modified]
-    # All functional methods (run_simulation, show_analytics, etc.) remain identical
-    
-    # For brevity, I'm showing that only UI creation methods were enhanced.
-    # All other methods (run_simulation, show_analytics, etc.) remain EXACTLY THE SAME
-    # as in your original code, maintaining all functionality while improving the UI.
     def show_all_charts(self):
         """Show all charts in a separate window."""
         if self.current_df.empty:
@@ -1840,12 +1519,13 @@ class ModernQueueSimulatorGUI:
             
             messagebox.showinfo("Reset Complete", "All simulation data has been reset successfully.")
 
-# Replace the class name in main function
 def main():
     """Main function to run the application."""
     root = tk.Tk()
-    app = ModernQueueSimulatorGUI(root)  # Changed from QueueSimulatorGUI
+    app = QueueSimulatorGUI(root)
     root.mainloop()
 
 if __name__ == "__main__":
     main()
+
+
