@@ -635,6 +635,7 @@ class ModernQueueSimulatorGUI:
         • Markovian (M): Exponential or Poisson distributions
         • General (G): Uniform, Normal, or Gamma distributions
         
+        
         ⚙️ PARAMETERS:
         • Exponential/Poisson: rate=λ (e.g., rate=0.5)
         • Uniform: min=a,max=b (e.g., min=1,max=3)

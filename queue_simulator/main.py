@@ -2,7 +2,7 @@
 Main launcher for Sapphire Shopping Outlet Queue Simulator.
 """
 import tkinter as tk
-from simulator_gui import QueueSimulatorGUI
+from simulator_gui import ModernQueueSimulatorGUI
 
 def main():
     """Launch the queue simulator application."""
@@ -12,7 +12,7 @@ def main():
     root.title("Sapphire Shopping Outlet - Queue Simulator")
     
     # Create and run the application
-    app = QueueSimulatorGUI(root)
+    app = ModernQueueSimulatorGUI(root)
     
     # Center window on screen
     root.update_idletasks()
