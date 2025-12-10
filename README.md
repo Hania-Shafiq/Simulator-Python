@@ -35,3 +35,5 @@ A comprehensive queue simulation system implementing CP-based (Cumulative Probab
 - Professional visualization tools
 
 ## The complete, integrated code is available in final folder - a single folder containing all functionality.
+# excel work 
+https://1drv.ms/x/s!AiCohVIFv4wBdCIN88_zh1ndjdA?e=rt3iPz
